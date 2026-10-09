@@ -1,0 +1,50 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="using:AHNSF.Music.Desktop" xmlns:controls="using:AHNSF.Music.Desktop.Controls" x:Class="AHNSF.Music.Desktop.Views.LibraryView">
+  <UserControl.Resources><local:CurrentTrackConverter x:Key="CurrentTrackConverter"/></UserControl.Resources>
+  <Grid RowDefinitions="Auto,Auto,Auto,Auto,*">
+    <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,12">
+      <StackPanel Spacing="3" VerticalAlignment="Center"><TextBlock Text="{Binding LibraryStatistics}" FontWeight="SemiBold"/><TextBlock Text="{Binding MusicDirectory}" Classes="muted" FontSize="11" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding MusicDirectory}"/></StackPanel>
+      <Button Grid.Column="1" Content="Selecionar pasta" Classes="accent" Command="{Binding ChooseDirectoryCommand}" Margin="10,0,8,0" VerticalAlignment="Center" ToolTip.Tip="Escolher a pasta local com os MP3"/>
+      <Button Grid.Column="2" Content="Atualizar biblioteca" Command="{Binding RefreshCommand}" VerticalAlignment="Center" ToolTip.Tip="Reconciliar a pasta agora; arquivos inalterados não são relidos"/>
+    </Grid>
+    <Border Grid.Row="1" Classes="toolbar" Margin="0,0,0,10"><Grid ColumnDefinitions="2*,*,*,*,Auto" RowDefinitions="Auto">
+      <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,0,8,0">
+        <Path Classes="icon" Data="{StaticResource SearchIcon}" Width="15" Height="15" Margin="10,0,0,0" IsHitTestVisible="False" ZIndex="1"/>
+        <TextBox x:Name="LibrarySearch" Grid.ColumnSpan="3" Padding="34,8,34,8" ToolTip.Tip="Ctrl+F pesquisa; caixa e acentos são ignorados" Text="{Binding SearchText, Mode=TwoWay}" Watermark="Pesquisar título, artista, álbum ou arquivo" AutomationProperties.Name="Pesquisar na biblioteca"/>
+        <Button Grid.Column="2" Classes="ghost" Content="✕" Command="{Binding ClearSearchCommand}" IsVisible="{Binding HasSearchCriteria}" ToolTip.Tip="Limpar pesquisa e filtros" AutomationProperties.Name="Limpar pesquisa e filtros" MinHeight="28" Padding="8,2" Margin="0,0,4,0" ZIndex="1"/>
+      </Grid>
+      <ComboBox Grid.Column="1" ItemsSource="{Binding ArtistOptions}" SelectedItem="{Binding SelectedArtist, Mode=TwoWay}" HorizontalAlignment="Stretch" Margin="0,0,8,0" ToolTip.Tip="Filtrar por artista" AutomationProperties.Name="Filtrar por artista"><ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis"/></DataTemplate></ComboBox.ItemTemplate></ComboBox>
+      <ComboBox Grid.Column="2" ItemsSource="{Binding AlbumOptions}" SelectedItem="{Binding SelectedAlbum, Mode=TwoWay}" HorizontalAlignment="Stretch" Margin="0,0,8,0" ToolTip.Tip="Filtrar por álbum" AutomationProperties.Name="Filtrar por álbum"><ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis"/></DataTemplate></ComboBox.ItemTemplate></ComboBox>
+      <ComboBox Grid.Column="3" ItemsSource="{Binding SortOptions}" SelectedIndex="{Binding SortIndex, Mode=TwoWay}" HorizontalAlignment="Stretch" Margin="0,0,8,0" ToolTip.Tip="Ordenar por" AutomationProperties.Name="Ordenar por"/>
+      <CheckBox Grid.Column="4" Content="Decrescente" IsChecked="{Binding Descending, Mode=TwoWay}" VerticalAlignment="Center" ToolTip.Tip="Inverter a ordenação"/>
+    </Grid></Border>
+    <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" Margin="0,0,0,10">
+      <TextBlock Text="{Binding ResultsText}" Classes="muted" FontSize="12" VerticalAlignment="Center" Margin="2,0,12,0"/>
+      <TextBlock Grid.Column="1" Text="{Binding LibrarySelectionText}" Foreground="{StaticResource AccentBrush}" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+      <ComboBox Grid.Column="2" ItemsSource="{Binding Playlists}" SelectedItem="{Binding TargetPlaylist, Mode=TwoWay}" Width="200" PlaceholderText="Playlist de destino" Margin="0,0,6,0" ToolTip.Tip="Playlist que receberá as músicas selecionadas" AutomationProperties.Name="Playlist de destino"><ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis"/></DataTemplate></ComboBox.ItemTemplate></ComboBox>
+      <Button Grid.Column="3" Content="Adicionar à playlist" Command="{Binding AddToPlaylistCommand}" Margin="0,0,6,0" ToolTip.Tip="Adicionar as selecionadas à playlist de destino"/>
+      <Button Grid.Column="4" Content="Tocar a seguir" Command="{Binding AddAsNextCommand}" ToolTip.Tip="Adicionar selecionadas como próximas na fila" Margin="0,0,6,0"/>
+      <Button Grid.Column="5" Content="+ Fila" Command="{Binding AddToQueueCommand}" ToolTip.Tip="Adicionar selecionadas ao final da fila" AutomationProperties.Name="Adicionar ao final da fila"/>
+    </Grid>
+    <Grid Grid.Row="3" Classes="libraryHeading" ColumnDefinitions="*,130,120,50" Margin="82,0,22,6"><TextBlock Text="MÚSICA" Classes="eyebrow"/><TextBlock Grid.Column="1" Text="ARTISTA" Classes="eyebrow"/><TextBlock Grid.Column="2" Text="ÁLBUM" Classes="eyebrow"/><TextBlock Grid.Column="3" Text="TEMPO" Classes="eyebrow"/></Grid>
+    <Border Grid.Row="4" Classes="list">
+      <Grid>
+        <ListBox x:Name="MusicList" ItemsSource="{Binding Tracks}" SelectionMode="Multiple" SelectedItems="{Binding SelectedLibraryTracks}" SelectedItem="{Binding SelectedTrack, Mode=TwoWay}" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Músicas da biblioteca" ToolTip.Tip="Duplo clique reproduz • Ctrl/Shift para seleção múltipla • botão direito para ações">
+          <ListBox.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel/></ItemsPanelTemplate></ListBox.ItemsPanel>
+          <ListBox.ItemTemplate><DataTemplate><Grid Classes="libraryRow" ClipToBounds="True" ColumnDefinitions="54,18,*,130,120,50">
+            <controls:ArtworkView CacheKey="{Binding ArtworkCacheKey}"/>
+            <TextBlock Grid.Column="1" Text="♫" Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center"><TextBlock.IsVisible><MultiBinding Converter="{StaticResource CurrentTrackConverter}"><Binding/><Binding Path="$parent[Window].DataContext.CurrentTrack"/></MultiBinding></TextBlock.IsVisible></TextBlock>
+            <StackPanel Grid.Column="2" Spacing="2" Margin="0,0,12,0" VerticalAlignment="Center"><TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding FileName}"/><TextBlock Text="{Binding FileName}" Classes="muted" FontSize="11" TextTrimming="CharacterEllipsis"/></StackPanel>
+            <TextBlock Grid.Column="3" Text="{Binding Artist}" Classes="muted" TextTrimming="CharacterEllipsis" Margin="0,0,12,0" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="4" Text="{Binding Album}" Classes="muted" TextTrimming="CharacterEllipsis" Margin="0,0,12,0" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="5" Text="{Binding DurationText}" Classes="muted" VerticalAlignment="Center"/>
+          </Grid></DataTemplate></ListBox.ItemTemplate>
+        </ListBox>
+        <StackPanel IsVisible="{Binding ShowEmpty}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10" Margin="24" MaxWidth="420">
+          <TextBlock Text="♫" FontSize="34" Foreground="{StaticResource MutedBrush}" HorizontalAlignment="Center"/>
+          <TextBlock Text="{Binding EmptyText}" Classes="muted" TextWrapping="Wrap" TextAlignment="Center"/>
+          <Button Content="Limpar pesquisa e filtros" Command="{Binding ClearSearchCommand}" IsVisible="{Binding HasSearchCriteria}" HorizontalAlignment="Center"/>
+        </StackPanel>
+      </Grid>
+    </Border>
+  </Grid>
+</UserControl>

@@ -1,0 +1,19 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Class="AHNSF.Music.Desktop.Views.QueueView">
+  <Grid RowDefinitions="Auto,Auto,*">
+    <Border Classes="card" Padding="14,12" Margin="0,0,0,12"><Grid>
+      <StackPanel Spacing="4"><TextBlock Text="{Binding QueueSummary}" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock Text="Alterar a fila não modifica as playlists salvas. A fila desta sessão não é restaurada ao reabrir." Classes="muted" FontSize="12" TextWrapping="Wrap"/></StackPanel>
+    </Grid></Border>
+    <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+      <TextBlock Text="{Binding QueueSelectionText}" Classes="muted" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+      <WrapPanel Grid.Column="1"><Button Content="Reproduzir selecionada" Command="{Binding PlayQueueItemCommand}" Classes="accent" Margin="0,0,8,0" ToolTip.Tip="Tocar a ocorrência selecionada (ou duplo clique)"/><Button Content="Remover selecionadas…" Classes="danger" Command="{Binding RequestRemoveQueueItemsCommand}" Margin="0,0,8,0" ToolTip.Tip="Pede confirmação; remover a atual interrompe a reprodução"/><Button Content="Limpar fila…" Classes="danger" Command="{Binding RequestClearQueueCommand}" ToolTip.Tip="Pede confirmação e para a reprodução"/></WrapPanel>
+    </Grid>
+    <Border Grid.Row="2" Classes="list"><Grid>
+      <ListBox x:Name="QueueList" ItemsSource="{Binding QueueRows}" ItemTemplate="{StaticResource OccurrenceTemplate}" SelectionMode="Multiple" SelectedItems="{Binding SelectedQueueRows}" SelectedItem="{Binding SelectedQueueRow, Mode=TwoWay}" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Fila de reprodução"><ListBox.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel/></ItemsPanelTemplate></ListBox.ItemsPanel></ListBox>
+      <StackPanel IsVisible="{Binding ShowQueueEmpty}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10" Margin="20" MaxWidth="400">
+        <TextBlock Text="♫" FontSize="34" Foreground="{StaticResource MutedBrush}" HorizontalAlignment="Center"/>
+        <TextBlock Text="Fila vazia. Adicione músicas pela Biblioteca ou reproduza uma playlist." Classes="muted" TextWrapping="Wrap" TextAlignment="Center"/>
+        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center"><Button Content="Abrir biblioteca" Command="{Binding NavigateCommand}" CommandParameter="Biblioteca"/><Button Content="Abrir playlists" Command="{Binding NavigateCommand}" CommandParameter="Playlists"/></StackPanel>
+      </StackPanel>
+    </Grid></Border>
+  </Grid>
+</UserControl>

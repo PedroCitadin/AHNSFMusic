@@ -1,0 +1,6 @@
+<Application xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Class="AHNSF.Music.Desktop.App" RequestedThemeVariant="Dark">
+  <Application.Styles>
+    <FluentTheme />
+    <StyleInclude Source="avares://AHNSF.Music.Desktop/Styles/DesignSystem.axaml"/>
+  </Application.Styles>
+</Application>

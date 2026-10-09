@@ -1,0 +1,95 @@
+<Styles xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="using:AHNSF.Music.Desktop.Controls">
+  <Styles.Resources>
+    <Color x:Key="SystemAccentColor">#8FD3C5</Color>
+    <SolidColorBrush x:Key="CanvasBrush">#101419</SolidColorBrush>
+    <SolidColorBrush x:Key="SidebarBrush">#151A20</SolidColorBrush>
+    <SolidColorBrush x:Key="SurfaceBrush">#1A2028</SolidColorBrush>
+    <SolidColorBrush x:Key="RaisedBrush">#222A34</SolidColorBrush>
+    <SolidColorBrush x:Key="LineBrush">#303B47</SolidColorBrush>
+    <SolidColorBrush x:Key="TextBrush">#E8EEF4</SolidColorBrush>
+    <SolidColorBrush x:Key="MutedBrush">#A5B2C2</SolidColorBrush>
+    <SolidColorBrush x:Key="AccentBrush">#8FD3C5</SolidColorBrush>
+    <SolidColorBrush x:Key="WarningBrush">#E8BC79</SolidColorBrush>
+    <SolidColorBrush x:Key="DangerBrush">#EE9D9D</SolidColorBrush>
+    <SolidColorBrush x:Key="OnAccentBrush">#10231E</SolidColorBrush>
+    <SolidColorBrush x:Key="InputBrush">#141A21</SolidColorBrush>
+    <DataTemplate x:Key="OccurrenceTemplate">
+      <Grid ColumnDefinitions="34,18,54,*,55,Auto" MinHeight="58">
+        <TextBlock Text="{Binding DisplayPosition}" Classes="muted" FontSize="12" VerticalAlignment="Center"/>
+        <TextBlock Grid.Column="1" Text="♫" Foreground="{StaticResource AccentBrush}" IsVisible="{Binding IsCurrent}" VerticalAlignment="Center" ToolTip.Tip="Ocorrência atual"/>
+        <controls:ArtworkView Grid.Column="2" CacheKey="{Binding ArtworkCacheKey}"/>
+        <StackPanel Grid.Column="3" Spacing="2" Margin="0,3,10,3" VerticalAlignment="Center">
+          <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" FontWeight="{Binding TitleWeight}"/>
+          <TextBlock Text="{Binding Subtitle}" Classes="muted" FontSize="11" TextTrimming="CharacterEllipsis"/>
+        </StackPanel>
+        <TextBlock Grid.Column="4" Text="{Binding DurationText}" Classes="muted" VerticalAlignment="Center"/>
+        <Border Grid.Column="5" IsVisible="{Binding IsUnavailable}" Background="#302920" CornerRadius="5" Padding="7,3" VerticalAlignment="Center" Margin="6,0,0,0" ToolTip.Tip="Referência preservada; ignorada na navegação automática"><TextBlock Text="{Binding AvailabilityText}" Foreground="{StaticResource WarningBrush}" FontSize="11"/></Border>
+      </Grid>
+    </DataTemplate>
+    <CornerRadius x:Key="CardRadius">12</CornerRadius>
+    <Thickness x:Key="CardPadding">18</Thickness>
+    <x:Double x:Key="SpaceSmall">8</x:Double><x:Double x:Key="SpaceMedium">16</x:Double><x:Double x:Key="SpaceLarge">24</x:Double>
+    <StreamGeometry x:Key="HomeIcon">M3,11 L12,3 L21,11 M5,10 L5,21 L10,21 L10,15 L14,15 L14,21 L19,21 L19,10</StreamGeometry>
+    <StreamGeometry x:Key="LibraryIcon">M4,3 L4,21 M9,3 L9,21 M14,3 L14,21 M18,4 L22,20</StreamGeometry>
+    <StreamGeometry x:Key="PlaylistIcon">M3,5 L16,5 M3,10 L16,10 M3,15 L10,15 M18,12 L18,21 M18,12 L22,11 M18,20 C18,23 13,23 13,20 C13,17 18,17 18,20</StreamGeometry>
+    <StreamGeometry x:Key="QueueIcon">M3,5 L21,5 M3,11 L21,11 M3,17 L13,17 M17,15 L22,18 L17,21 Z</StreamGeometry>
+    <StreamGeometry x:Key="CalendarIcon">M4,5 L20,5 L20,21 L4,21 Z M4,10 L20,10 M8,2 L8,7 M16,2 L16,7 M8,14 L10,14 M14,14 L16,14 M8,18 L10,18</StreamGeometry>
+    <StreamGeometry x:Key="SettingsIcon">M5,3 L5,21 M12,3 L12,21 M19,3 L19,21 M2,8 L8,8 M9,16 L15,16 M16,6 L22,6</StreamGeometry>
+    <StreamGeometry x:Key="PlayIcon">M8,4 L20,12 L8,20 Z</StreamGeometry>
+    <StreamGeometry x:Key="PauseIcon">M8,4 L8,20 M16,4 L16,20</StreamGeometry>
+    <StreamGeometry x:Key="StopIcon">M6,6 L18,6 L18,18 L6,18 Z</StreamGeometry>
+    <StreamGeometry x:Key="NextIcon">M5,5 L16,12 L5,19 Z M20,5 L20,19</StreamGeometry>
+    <StreamGeometry x:Key="PreviousIcon">M19,5 L8,12 L19,19 Z M4,5 L4,19</StreamGeometry>
+    <StreamGeometry x:Key="SearchIcon">M17,10 C17,19 3,19 3,10 C3,1 17,1 17,10 M15,15 L22,22</StreamGeometry>
+    <StreamGeometry x:Key="AlertIcon">M12,3 L22,21 L2,21 Z M12,9 L12,14 M12,17 L12,18</StreamGeometry>
+  </Styles.Resources>
+  <Style Selector="Window"><Setter Property="FontFamily" Value="Segoe UI"/><Setter Property="FontSize" Value="13"/><Setter Property="Foreground" Value="{StaticResource TextBrush}"/><Setter Property="Background" Value="{StaticResource CanvasBrush}"/></Style>
+  <Style Selector="TextBlock.title"><Setter Property="FontSize" Value="27"/><Setter Property="FontWeight" Value="SemiBold"/></Style>
+  <Style Selector="TextBlock.heading"><Setter Property="FontSize" Value="18"/><Setter Property="FontWeight" Value="SemiBold"/></Style>
+  <Style Selector="TextBlock.muted"><Setter Property="Foreground" Value="{StaticResource MutedBrush}"/></Style>
+  <Style Selector="TextBlock.eyebrow"><Setter Property="FontSize" Value="11"/><Setter Property="Foreground" Value="{StaticResource MutedBrush}"/><Setter Property="FontWeight" Value="SemiBold"/></Style>
+  <Style Selector="Border.card"><Setter Property="Background" Value="{StaticResource SurfaceBrush}"/><Setter Property="BorderBrush" Value="{StaticResource LineBrush}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="{StaticResource CardRadius}"/><Setter Property="Padding" Value="{StaticResource CardPadding}"/></Style>
+  <Style Selector="Border.alert"><Setter Property="Background" Value="#302920"/><Setter Property="BorderBrush" Value="#6C5738"/></Style>
+  <Style Selector="Border.danger"><Setter Property="Background" Value="#302329"/><Setter Property="BorderBrush" Value="#795055"/></Style>
+  <Style Selector="Button"><Setter Property="MinHeight" Value="36"/><Setter Property="CornerRadius" Value="7"/><Setter Property="Padding" Value="12,8"/><Setter Property="Background" Value="{StaticResource RaisedBrush}"/><Setter Property="BorderBrush" Value="{StaticResource LineBrush}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="Foreground" Value="{StaticResource TextBrush}"/></Style>
+  <Style Selector="Button /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{TemplateBinding Background}"/><Setter Property="BorderBrush" Value="{TemplateBinding BorderBrush}"/></Style>
+  <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="#303D49"/><Setter Property="BorderBrush" Value="#6A8397"/></Style>
+  <Style Selector="Button:pressed /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="#3B4A57"/></Style>
+  <Style Selector="Button.accent"><Setter Property="Background" Value="{StaticResource AccentBrush}"/><Setter Property="Foreground" Value="#10231E"/><Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/><Setter Property="FontWeight" Value="SemiBold"/></Style>
+  <Style Selector="Button.accent:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="#B3E5D9"/></Style>
+  <Style Selector="Button.danger"><Setter Property="Foreground" Value="{StaticResource DangerBrush}"/></Style>
+  <Style Selector="Button.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="#3A2A31"/><Setter Property="BorderBrush" Value="#795055"/><Setter Property="Foreground" Value="{StaticResource DangerBrush}"/></Style>
+  <Style Selector="Button.ghost"><Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/><Setter Property="Foreground" Value="{StaticResource MutedBrush}"/></Style>
+  <Style Selector="Button:disabled /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="#1B2128"/><Setter Property="BorderBrush" Value="#262F39"/><Setter Property="Foreground" Value="#6B7785"/></Style>
+  <Style Selector="Border.toolbar"><Setter Property="Background" Value="{StaticResource SurfaceBrush}"/><Setter Property="BorderBrush" Value="{StaticResource LineBrush}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="{StaticResource CardRadius}"/><Setter Property="Padding" Value="10"/></Style>
+  <Style Selector="Border.list"><Setter Property="Background" Value="{StaticResource SurfaceBrush}"/><Setter Property="BorderBrush" Value="{StaticResource LineBrush}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="{StaticResource CardRadius}"/><Setter Property="Padding" Value="6"/><Setter Property="ClipToBounds" Value="True"/></Style>
+  <Style Selector="ListBoxItem.dropTarget /template/ ContentPresenter"><Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/><Setter Property="BorderThickness" Value="0,3,0,0"/><Setter Property="Background" Value="#22403B"/></Style>
+  <Style Selector="Button.nav"><Setter Property="HorizontalAlignment" Value="Stretch"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/><Setter Property="Padding" Value="12,11"/></Style>
+  <Style Selector="Button.nav.active"><Setter Property="Background" Value="#253A37"/><Setter Property="Foreground" Value="{StaticResource AccentBrush}"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="BorderBrush" Value="#41625B"/><Setter Property="BorderThickness" Value="1"/></Style>
+  <Style Selector="Button:focus-visible /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/><Setter Property="BorderThickness" Value="2"/></Style>
+  <Style Selector="TextBox"><Setter Property="MinHeight" Value="36"/><Setter Property="CornerRadius" Value="7"/><Setter Property="Background" Value="#141A21"/><Setter Property="BorderBrush" Value="{StaticResource LineBrush}"/></Style>
+  <Style Selector="ComboBox"><Setter Property="MinHeight" Value="36"/><Setter Property="CornerRadius" Value="7"/><Setter Property="Background" Value="#141A21"/><Setter Property="BorderBrush" Value="{StaticResource LineBrush}"/></Style>
+  <Style Selector="TextBox:focus /template/ Border#PART_BorderElement"><Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/></Style>
+  <Style Selector="ListBox"><Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/><Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/></Style>
+  <Style Selector="ListBoxItem"><Setter Property="Padding" Value="10,8"/><Setter Property="MinHeight" Value="42"/><Setter Property="CornerRadius" Value="7"/></Style>
+  <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter"><Setter Property="Background" Value="#252F3A"/></Style>
+  <Style Selector="ListBoxItem:selected /template/ ContentPresenter"><Setter Property="Background" Value="#2C4542"/><Setter Property="BorderBrush" Value="#76B4A5"/><Setter Property="BorderThickness" Value="1"/></Style>
+  <Style Selector="ListBoxItem:focus-visible /template/ ContentPresenter"><Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/><Setter Property="BorderThickness" Value="2"/></Style>
+  <Style Selector="Path.icon"><Setter Property="Width" Value="18"/><Setter Property="Height" Value="18"/><Setter Property="Stretch" Value="Uniform"/><Setter Property="Stroke" Value="{StaticResource MutedBrush}"/><Setter Property="StrokeThickness" Value="1.8"/></Style>
+  <Style Selector="Grid.libraryRow"><Setter Property="controls:ResponsiveColumns.Value" Value="54,18,*,130,120,50"/></Style>
+  <Style Selector="Grid.libraryHeading"><Setter Property="controls:ResponsiveColumns.Value" Value="*,130,120,50"/></Style>
+  <Style Selector="Window.compact Grid.libraryRow"><Setter Property="controls:ResponsiveColumns.Value" Value="54,18,*,100,0,50"/></Style>
+  <Style Selector="Window.compact Grid.libraryHeading"><Setter Property="controls:ResponsiveColumns.Value" Value="*,100,0,50"/></Style>
+  <Style Selector="Window.compact Border.page"><Setter Property="Padding" Value="16"/></Style>
+  <Style Selector="Grid.pageHeader"><Setter Property="Margin" Value="0,0,0,18"/></Style>
+  <Style Selector="StackPanel.pageFooter"><Setter Property="Margin" Value="0,12,0,0"/></Style>
+  <Style Selector="Window.short Border.page"><Setter Property="Padding" Value="24,12,24,8"/></Style>
+  <Style Selector="Window.short.compact Border.page"><Setter Property="Padding" Value="16,12,16,8"/></Style>
+  <Style Selector="Window.short Grid.pageHeader"><Setter Property="Margin" Value="0,0,0,10"/></Style>
+  <Style Selector="Window.short TextBlock.title"><Setter Property="FontSize" Value="22"/></Style>
+  <Style Selector="Window.short TextBlock.pageDescription"><Setter Property="IsVisible" Value="False"/></Style>
+  <Style Selector="Window.short StackPanel.pageFooter"><Setter Property="Margin" Value="0,6,0,0"/></Style>
+  <Style Selector="Window.short Border.player"><Setter Property="Padding" Value="24,6"/></Style>
+  <Style Selector="Window.short.compact Border.player"><Setter Property="Padding" Value="16,6"/></Style>
+  <Style Selector="Window.compact Border.player"><Setter Property="Padding" Value="16,10"/></Style>
+</Styles>
