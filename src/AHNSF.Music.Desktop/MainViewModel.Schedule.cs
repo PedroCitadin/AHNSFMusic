@@ -83,7 +83,7 @@ public partial class MainViewModel
         var cards = Rules.Select(rule => new ScheduleCard(rule, Playlists.FirstOrDefault(p => p.Id == rule.PlaylistId)?.Name ?? "Playlist indisponível",
             WeeklyPresentation.DaysLabel(rule.Days), $"{rule.StartTime:HH:mm} – {rule.EndTime:HH:mm}{(rule.EndTime < rule.StartTime ? " (+1 dia)" : "")}",
             $"Volume {rule.Volume:0}% · prioridade {rule.Priority}", !rule.IsEnabled ? "○ Desativada" : status.Evaluation.Winner?.Rule.Id == rule.Id ? "▶ Vencedora agora" : status.Evaluation.Active.Any(a => a.Rule.Id == rule.Id) ? "⚠ Ativa em conflito" : "◷ Habilitada",
-            !rule.IsEnabled ? "#A5B2C2" : status.Evaluation.Winner?.Rule.Id == rule.Id ? "#8FD3C5" : status.Evaluation.Active.Any(a => a.Rule.Id == rule.Id) ? "#E8BC79" : "#E8EEF4")).ToArray();
+            !rule.IsEnabled ? "TextSecondary" : status.Evaluation.Winner?.Rule.Id == rule.Id ? "AccentText" : status.Evaluation.Active.Any(a => a.Rule.Id == rule.Id) ? "Warning" : "TextPrimary")).ToArray();
         if (!ScheduleCards.SequenceEqual(cards))
         { var id = SelectedRule?.Id; updatingScheduleCards = true; ScheduleCards = cards; SelectedScheduleCard = cards.FirstOrDefault(c => c.Rule.Id == id); updatingScheduleCards = false; }
         var lines = new List<string>();
@@ -114,7 +114,7 @@ public partial class MainViewModel
             lines.Add($"  Sem programação: {(gaps.Count == 0 ? "nenhuma lacuna" : string.Join(", ", gaps))}\n");
         }
         WeeklySummary = string.Join("\n", lines);
-        WeekLines = lines.Select(line => new WeekLine(line, line.Contains("Vencedora agora") ? "#75CDD2" : line.Contains("Ativa em conflito") ? "#FFC08A" : line.Contains("Desativada") ? "#82909B" : line.Contains("Sem programação") ? "#A5BAC6" : "#DEE8EC")).ToArray();
+        WeekLines = lines.Select(line => new WeekLine(line, line.Contains("Vencedora agora") ? "AccentText" : line.Contains("Ativa em conflito") ? "Warning" : line.Contains("Desativada") ? "TextDisabled" : line.Contains("Sem programação") ? "TextSecondary" : "TextPrimary")).ToArray();
     }
     [RelayCommand] private void NewRule()
     {

@@ -35,6 +35,7 @@ public partial class MainViewModel
     [ObservableProperty] private double importProgressMaximum = 1;
     [ObservableProperty] private bool importProgressKnown;
     [ObservableProperty] private string importProgressText = "";
+    [ObservableProperty] private bool importNeedsAuthentication;
     public int ImportTrackCount => ImportRows.Count;
     public bool ImportHasPreview => ImportRows.Count > 0;
     public bool ImportIsOnline => importPreview?.Platform is not null;
@@ -97,7 +98,7 @@ public partial class MainViewModel
     [RelayCommand] private async Task StartImportAsync()
     {
         if (importService is null || importPreview is null || !ImportCanStart) return;
-        ImportBusy = true; importCancellation = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
+        ImportBusy = true; ImportNeedsAuthentication = false; importCancellation = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
         ImportProgressValue = 0; ImportProgressMaximum = 1; ImportProgressKnown = false; ImportProgressText = "";
         try
         {
@@ -111,17 +112,30 @@ public partial class MainViewModel
             var selected = ImportRows.Where(r => r.IsSelected).Select(r => r.Track.Id).ToHashSet();
             var result = await importService.ImportAsync(importPreview, selected, settings.MusicDirectory ?? "", ImportPlaylistName, progress, importCancellation.Token);
             ImportResults = result.Items;
+            ImportNeedsAuthentication = result.Items.Any(i => i.Failure == ImportFailureKind.SourceVerification);
             ImportMessage = result.Cancelled ? $"Cancelado. {result.Imported} música(s) concluída(s) foram preservadas na pasta musical, sem playlist." :
                 result.Unavailable > 0 ? $"Concluído com pendências: {result.Imported} nova(s), {result.Duplicates} já existente(s), {result.Unavailable} não disponível(is)"
                     + (result.FailureBreakdown.Length > 0 ? $" ({result.FailureBreakdown})" : "") + (result.PlaylistId is null ? ". Nenhuma playlist foi criada." : ". A playlist contém apenas as obtidas.")
                     + (result.Items.Where(i => i.Failure is not null).GroupBy(i => i.Failure!.Value).OrderByDescending(g => g.Count()).FirstOrDefault() is { } main
                         ? " " + ImportFailures.Describe(main.Key) : "") :
                 $"Concluído: {result.Imported} nova(s), {result.Duplicates} já existente(s). Playlist “{ImportPlaylistName.Trim()}” criada.";
+            KeepOnlyFailuresSelected(result);
             if (result.Imported > 0 || result.PlaylistId is not null) { await ReloadPlaylistsAsync(); if (library is not null) await LoadCatalogAsync(true); }
         }
         catch (OperationCanceledException) { ImportMessage = "Importação cancelada."; }
         catch (Exception ex) { ImportMessage = ex is ArgumentException or DirectoryNotFoundException or InvalidOperationException or NotSupportedException ? ex.Message : "A importação falhou; arquivos concluídos foram preservados."; logger.Warning(ex, "Falha de importação"); }
         finally { ImportBusy = false; importCancellation.Dispose(); importCancellation = null; }
+    }
+    /// <summary>After a run, obtained tracks count as already in the library, so "Baixar" again retries only the failures.</summary>
+    private void KeepOnlyFailuresSelected(ImportResult result)
+    {
+        if (importPreview is null || result.Unavailable == 0) return;
+        var done = result.Items.Where(i => i.LibraryTrackId is not null).ToDictionary(i => i.ImportTrackId, i => i.LibraryTrackId);
+        var failed = result.Items.Where(i => i.LibraryTrackId is null).Select(i => i.ImportTrackId).ToHashSet();
+        importPreview = importPreview with { Tracks = importPreview.Tracks.Select(t => done.TryGetValue(t.Id, out var id) ? t with { ExistingTrackId = id } : t).ToArray() };
+        var selection = ImportRows.ToDictionary(r => r.Track.Id, r => r.IsSelected);
+        ImportRows = importPreview.Tracks.Select(t => new ImportRow(t) { IsSelected = selection.GetValueOrDefault(t.Id) && (failed.Contains(t.Id) || done.ContainsKey(t.Id)) }).ToArray();
+        ImportMessage += " Para tentar de novo só as que falharam, clique em Baixar.";
     }
     [RelayCommand] private void CancelImport() => importCancellation?.Cancel();
 }

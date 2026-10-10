@@ -10,3 +10,4 @@ artifacts/
 *.db-wal
 *.log
 secrets/
+teste-musicas/

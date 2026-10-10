@@ -117,6 +117,16 @@ public partial class MainWindow : Window
             var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions { Title = "Selecionar pasta de músicas", AllowMultiple = false });
             return folders.FirstOrDefault()?.TryGetLocalPath();
         };
+        viewModel.PickCookieFile = async () =>
+        {
+            var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = "Selecionar arquivo de cookies do YouTube (cookies.txt)",
+                AllowMultiple = false,
+                FileTypeFilter = [new FilePickerFileType("Cookies Netscape (*.txt)") { Patterns = ["*.txt"] }]
+            });
+            return files.FirstOrDefault()?.TryGetLocalPath();
+        };
         viewModel.PickImportFiles = async () =>
         {
             var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions

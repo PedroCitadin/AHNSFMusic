@@ -1,11 +1,46 @@
 <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="using:AHNSF.Music.Desktop.Controls" x:Class="AHNSF.Music.Desktop.Views.PlayerView">
-  <Border Classes="player" Background="{StaticResource SidebarBrush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,1,0,0" Padding="24,10">
-    <Grid ColumnDefinitions="2*,3*,1.4*" RowDefinitions="Auto,Auto">
-      <Grid Grid.RowSpan="2" ColumnDefinitions="62,*" VerticalAlignment="Center"><controls:ArtworkView CacheKey="{Binding CurrentTrack.ArtworkCacheKey}" Width="50" Height="50"/><StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center" Margin="0,0,12,0"><TextBlock Text="{Binding CurrentTitle}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding CurrentTitle}"/><TextBlock Text="{Binding CurrentArtist}" Classes="muted" FontSize="11" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding QueueOrigin}" Foreground="{StaticResource AccentBrush}" FontSize="11" TextTrimming="CharacterEllipsis" ToolTip.Tip="Origem da fila atual"/></StackPanel></Grid>
-      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center"><Button Command="{Binding PreviousCommand}" ToolTip.Tip="Música anterior" AutomationProperties.Name="Anterior"><Path Classes="icon" Data="{StaticResource PreviousIcon}"/></Button><Button Command="{Binding PlayPauseCommand}" Classes="accent" ToolTip.Tip="Reproduzir ou pausar" AutomationProperties.Name="{Binding PlayLabel}" MinWidth="128"><StackPanel Orientation="Horizontal" Spacing="8"><Grid><Path Classes="icon" Data="{StaticResource PlayIcon}" IsVisible="{Binding !IsPlaying}" Stroke="{StaticResource OnAccentBrush}"/><Path Classes="icon" Data="{StaticResource PauseIcon}" IsVisible="{Binding IsPlaying}" Stroke="{StaticResource OnAccentBrush}"/></Grid><TextBlock Text="{Binding PlayLabel}"/></StackPanel></Button><Button Command="{Binding StopCommand}" ToolTip.Tip="Parar reprodução" AutomationProperties.Name="Parar"><Path Classes="icon" Data="{StaticResource StopIcon}"/></Button><Button Command="{Binding NextCommand}" ToolTip.Tip="Próxima música" AutomationProperties.Name="Próxima"><Path Classes="icon" Data="{StaticResource NextIcon}"/></Button></StackPanel>
-      <Grid Grid.Column="1" Grid.Row="1" ColumnDefinitions="42,*,42" Margin="0,4,0,0"><TextBlock Text="{Binding PositionText}" Classes="muted" FontSize="11" VerticalAlignment="Center"/><Slider Grid.Column="1" Minimum="0" Maximum="{Binding Duration}" IsEnabled="{Binding CanSeek}" Value="{Binding Position, Mode=TwoWay}" AutomationProperties.Name="Progresso da música" Margin="6,-8"/><TextBlock Grid.Column="2" Text="{Binding DurationText}" Classes="muted" FontSize="11" HorizontalAlignment="Right" VerticalAlignment="Center"/></Grid>
-      <StackPanel Grid.Column="2" Spacing="2" Margin="18,0,0,0" VerticalAlignment="Center"><TextBlock Text="{Binding VolumeLabel}" Classes="muted" FontSize="11"/><Slider Minimum="0" Maximum="100" Value="{Binding Volume, Mode=TwoWay}" AutomationProperties.Name="Volume" ToolTip.Tip="Volume manual; regras automáticas aplicam o próprio volume" Margin="0,-8"/></StackPanel>
-      <WrapPanel Grid.Column="2" Grid.Row="1" Margin="18,4,0,0" VerticalAlignment="Center"><ComboBox ItemsSource="{Binding RepeatOptions}" SelectedIndex="{Binding RepeatIndex, Mode=TwoWay}" Width="170" MinHeight="30" ToolTip.Tip="Preferência de repetição manual; sessões agendadas repetem a fila" AutomationProperties.Name="Modo de repetição" Margin="0,0,10,0"/><CheckBox Content="Aleatório" IsChecked="{Binding ShuffleEnabled, Mode=TwoWay}" ToolTip.Tip="Embaralhar futuras ocorrências sem mudar a ordem salva"/></WrapPanel>
+  <!-- Fixed player: left = now playing, centre = transport + progress, right = shuffle/repeat/volume/output. -->
+  <Border Classes="player" Background="{DynamicResource BackgroundSecondaryBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,1,0,0">
+    <Grid ColumnDefinitions="3*,4*,3*" VerticalAlignment="Center">
+      <Grid ColumnDefinitions="Auto,*" VerticalAlignment="Center" Margin="0,0,16,0">
+        <controls:ArtworkView CacheKey="{Binding CurrentTrack.ArtworkCacheKey}" Width="56" Height="56" CornerRadius="8" Margin="0,0,14,0"/>
+        <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+          <TextBlock Text="{Binding CurrentTitle}" FontWeight="SemiBold" FontSize="14" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding CurrentTitle}"/>
+          <TextBlock Text="{Binding CurrentArtist}" Classes="caption" TextTrimming="CharacterEllipsis"/>
+          <TextBlock Text="{Binding QueueOrigin}" Classes="caption accent" FontSize="11" TextTrimming="CharacterEllipsis" ToolTip.Tip="Origem da fila atual"/>
+        </StackPanel>
+      </Grid>
+      <Grid Grid.Column="1" RowDefinitions="Auto,Auto" MaxWidth="640" VerticalAlignment="Center">
+        <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
+          <Button Classes="round ghost" Command="{Binding StopCommand}" ToolTip.Tip="Parar reprodução" AutomationProperties.Name="Parar"><Path Classes="icon" Data="{StaticResource StopIcon}" Width="14" Height="14"/></Button>
+          <Button Classes="round ghost" Command="{Binding PreviousCommand}" ToolTip.Tip="Música anterior" AutomationProperties.Name="Anterior"><Path Classes="icon" Data="{StaticResource PreviousIcon}" Width="16" Height="16"/></Button>
+          <Button Classes="round play accent" Command="{Binding PlayPauseCommand}" ToolTip.Tip="{Binding PlayLabel}" AutomationProperties.Name="{Binding PlayLabel}">
+            <Grid><Path Classes="icon filled" Data="{StaticResource PlayIcon}" IsVisible="{Binding !IsPlaying}" Width="16" Height="16" Margin="3,0,0,0"/><Path Classes="icon" Data="{StaticResource PauseIcon}" IsVisible="{Binding IsPlaying}" StrokeThickness="3" Width="16" Height="16"/></Grid>
+          </Button>
+          <Button Classes="round ghost" Command="{Binding NextCommand}" ToolTip.Tip="Próxima música" AutomationProperties.Name="Próxima"><Path Classes="icon" Data="{StaticResource NextIcon}" Width="16" Height="16"/></Button>
+          <Border Width="36"/>
+        </StackPanel>
+        <Grid Grid.Row="1" ColumnDefinitions="44,*,44" Margin="0,2,0,0">
+          <TextBlock Text="{Binding PositionText}" Classes="caption" FontSize="11" VerticalAlignment="Center" HorizontalAlignment="Right"/>
+          <Slider Grid.Column="1" Minimum="0" Maximum="{Binding Duration}" IsEnabled="{Binding CanSeek}" Value="{Binding Position, Mode=TwoWay}" AutomationProperties.Name="Progresso da música" Margin="10,-10"/>
+          <TextBlock Grid.Column="2" Text="{Binding DurationText}" Classes="caption" FontSize="11" VerticalAlignment="Center"/>
+        </Grid>
+      </Grid>
+      <Grid Grid.Column="2" RowDefinitions="Auto,Auto" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="16,0,0,0" MaxWidth="360">
+        <Grid ColumnDefinitions="*,Auto,Auto">
+          <ToggleButton Grid.Column="1" Classes="round ghost" IsChecked="{Binding ShuffleEnabled, Mode=TwoWay}" Width="30" Height="30" Margin="0,0,6,0" ToolTip.Tip="Aleatório: embaralha as próximas ocorrências sem mudar a ordem salva" AutomationProperties.Name="Aleatório"><Path Classes="icon" Data="{StaticResource ShuffleIcon}" Width="15" Height="15"/></ToggleButton>
+          <StackPanel Orientation="Horizontal" Spacing="6" Classes="wideOnly" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding AudioDeviceMessage}">
+            <Path Classes="icon" Data="{StaticResource SpeakerIcon}" Width="14" Height="14" Classes.warningIcon="{Binding AudioDeviceNeedsAttention}"/>
+            <TextBlock Text="{Binding AudioDeviceEffective}" Classes="caption" FontSize="11" TextTrimming="CharacterEllipsis" MaxWidth="150" Classes.warning="{Binding AudioDeviceNeedsAttention}" VerticalAlignment="Center"/>
+          </StackPanel>
+          <ComboBox Grid.Column="2" ItemsSource="{Binding RepeatOptions}" SelectedIndex="{Binding RepeatIndex, Mode=TwoWay}" Width="164" MinHeight="30" FontSize="12" ToolTip.Tip="Preferência de repetição manual; sessões agendadas repetem a fila" AutomationProperties.Name="Modo de repetição"/>
+        </Grid>
+        <Grid Grid.Row="1" ColumnDefinitions="Auto,*,40" Margin="0,4,0,0">
+          <Path Classes="icon" Data="{StaticResource VolumeIcon}" Width="16" Height="16" VerticalAlignment="Center"/>
+          <Slider Grid.Column="1" Minimum="0" Maximum="100" Value="{Binding Volume, Mode=TwoWay}" MinWidth="110" AutomationProperties.Name="Volume" ToolTip.Tip="Volume manual; regras automáticas aplicam o próprio volume" Margin="10,-10"/>
+          <TextBlock Grid.Column="2" Text="{Binding Volume, StringFormat='{}{0:0}%'}" Classes="caption" FontSize="11" VerticalAlignment="Center" HorizontalAlignment="Right"/>
+        </Grid>
+      </Grid>
     </Grid>
   </Border>
 </UserControl>

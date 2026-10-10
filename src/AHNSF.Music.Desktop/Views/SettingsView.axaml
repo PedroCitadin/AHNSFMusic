@@ -1,57 +1,154 @@
-<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Class="AHNSF.Music.Desktop.Views.SettingsView">
-  <ScrollViewer HorizontalScrollBarVisibility="Disabled"><StackPanel Spacing="16" MaxWidth="820" HorizontalAlignment="Left" Margin="0,0,14,0">
-    <Border Classes="card" IsVisible="{Binding HasAudioDeviceService}"><StackPanel Spacing="10">
-      <TextBlock Text="Dispositivo de saída de áudio" Classes="heading"/>
-      <CheckBox Content="Utilizar o dispositivo padrão do Windows" IsChecked="{Binding UseDefaultAudioOutput}" IsEnabled="{Binding !IsChangingAudioOutput}"/>
-      <ComboBox ItemsSource="{Binding AudioOutputs}" SelectedItem="{Binding SelectedAudioOutput}" IsEnabled="{Binding IsAudioSelectionEnabled}" HorizontalAlignment="Stretch" PlaceholderText="Escolha a interface de áudio" AutomationProperties.Name="Dispositivo de saída">
-        <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Label}" TextWrapping="Wrap"/></DataTemplate></ComboBox.ItemTemplate>
-      </ComboBox>
-      <WrapPanel><Button Content="Aplicar seleção" Classes="accent" Command="{Binding ApplyAudioOutputCommand}" IsEnabled="{Binding !IsChangingAudioOutput}" Margin="0,0,8,4"/><Button Content="Atualizar dispositivos" Command="{Binding RefreshAudioOutputsCommand}" IsEnabled="{Binding !IsChangingAudioOutput}" Margin="0,0,0,4"/></WrapPanel>
-      <TextBlock Text="{Binding AudioDeviceMessage}" Classes.warning="{Binding AudioDeviceNeedsAttention}" TextWrapping="Wrap"/>
-      <TextBlock Text="{Binding AudioDeviceFeedback}" Classes="muted" TextWrapping="Wrap"/>
-      <Grid ColumnDefinitions="150,*"><TextBlock Text="Configurado" Classes="muted"/><TextBlock Grid.Column="1" Text="{Binding AudioDeviceConfigured}" TextWrapping="Wrap"/></Grid>
-      <Grid ColumnDefinitions="150,*"><TextBlock Text="Em uso" Classes="muted"/><TextBlock Grid.Column="1" Text="{Binding AudioDeviceEffective}" TextWrapping="Wrap"/></Grid>
-      <TextBlock Text="Para a mesa USB, escolha a interface específica. Não há troca silenciosa para alto-falantes internos. Se o padrão do Windows mudar, aplique a seleção para autorizar a nova saída. A troca conta como intervenção manual." Classes="muted" FontSize="12" TextWrapping="Wrap"/>
-    </StackPanel></Border>
-    <Border Classes="card"><StackPanel Spacing="10">
-      <TextBlock Text="Pasta musical" Classes="heading"/>
-      <TextBlock Text="{Binding MusicDirectory}" TextWrapping="Wrap" Classes="muted"/>
-      <TextBlock Text="{Binding LibraryHealth}" FontSize="12"/>
-      <WrapPanel><Button Content="Selecionar pasta" Classes="accent" Command="{Binding ChooseDirectoryCommand}" Margin="0,0,8,4"/><Button Content="Atualizar biblioteca" Command="{Binding RefreshCommand}" Margin="0,0,8,4" ToolTip.Tip="Reconciliar a pasta agora"/><Button Content="Reindexar todos os metadados" Command="{Binding ForceReindexCommand}" Margin="0,0,0,4" ToolTip.Tip="Reler também arquivos cujo tamanho e data não mudaram"/></WrapPanel>
-      <TextBlock Text="As músicas originais são apenas lidas. Nenhum arquivo é alterado." TextWrapping="Wrap" Classes="muted" FontSize="12"/>
-    </StackPanel></Border>
-    <Border Classes="card"><StackPanel Spacing="8">
-      <TextBlock Text="Reprodução" Classes="heading"/>
-      <TextBlock Text="{Binding VolumeLabel}"/>
-      <TextBlock Text="O volume, Aleatório e Repetir são salvos automaticamente. A reprodução usa a saída configurada neste aplicativo, sem alterar o volume global do Windows." TextWrapping="Wrap" Classes="muted" FontSize="12"/>
-    </StackPanel></Border>
-    <Border Classes="card"><StackPanel Spacing="10">
-      <TextBlock Text="Inicialização e janela" Classes="heading"/>
-      <CheckBox Content="Iniciar AHNSF Music com o Windows" IsChecked="{Binding AutoStartEnabled}" ToolTip.Tip="Somente para este usuário do Windows. Não exige administrador."/>
-      <CheckBox Content="Iniciar minimizado na bandeja (somente quando iniciado pelo Windows)" IsChecked="{Binding StartMinimized}" Margin="0,0,0,4"/>
-      <TextBlock Text="{Binding AutoStartText}" TextWrapping="Wrap" Classes="muted" FontSize="12"/>
-      <Button Content="Aplicar novamente" Command="{Binding ReapplyAutoStartCommand}" IsVisible="{Binding AutoStartNeedsAttention}" HorizontalAlignment="Left" ToolTip.Tip="Recria, corrige ou remove a entrada de inicialização conforme a opção acima"/>
-      <TextBlock Text="Ao fechar a janela" FontWeight="SemiBold" Margin="0,6,0,0"/>
-      <RadioButton GroupName="CloseBehavior" Content="Minimizar para a bandeja (a música e a programação continuam)" IsChecked="{Binding CloseToTray}"/>
-      <RadioButton GroupName="CloseBehavior" Content="Encerrar o aplicativo" IsChecked="{Binding CloseExits}"/>
-      <TextBlock Text="{Binding TrayStatusText}" TextWrapping="Wrap" Classes="muted" FontSize="12"/>
-      <TextBlock Text="Para encerrar de fato, use “Sair” no menu do ícone da bandeja. Se a música estiver tocando ou o modo Automático estiver ativo, o encerramento pede confirmação." TextWrapping="Wrap" Classes="muted" FontSize="12"/>
-    </StackPanel></Border>
-    <Border Classes="card"><StackPanel Spacing="8">
-      <TextBlock Text="Diagnóstico operacional" Classes="heading"/>
-      <TextBlock Text="Estado atual desta máquina. Somente leitura; nada é enviado pela rede." Classes="muted" FontSize="12" TextWrapping="Wrap"/>
-      <ItemsControl ItemsSource="{Binding Diagnostics}">
-        <ItemsControl.ItemTemplate><DataTemplate>
-          <Grid ColumnDefinitions="230,*" Margin="0,3"><TextBlock Text="{Binding Label}" Classes="muted" FontSize="12" TextWrapping="Wrap" Margin="0,0,12,0"/><TextBlock Grid.Column="1" Text="{Binding Value}" FontSize="12" TextWrapping="Wrap" Classes.warning="{Binding Attention}"/></Grid>
-        </DataTemplate></ItemsControl.ItemTemplate>
-      </ItemsControl>
-      <TextBlock Text="Registros detalhados: %LOCALAPPDATA%\AHNSF Music\logs" Classes="muted" FontSize="12" TextWrapping="Wrap"/>
-    </StackPanel></Border>
-    <Border Classes="card"><StackPanel Spacing="8">
-      <TextBlock Text="Atalhos de teclado" Classes="heading"/>
-      <TextBlock Text="Ctrl+1 a Ctrl+8: Início, Biblioteca, Playlists, Fila, Programação, Configurações, Histórico e Importar músicas" Classes="muted" TextWrapping="Wrap"/>
-      <TextBlock Text="Ctrl+F: pesquisar na biblioteca  •  Esc: cancelar confirmação aberta (o foco fica preso na janela de confirmação)  •  Tab: percorrer controles" Classes="muted" TextWrapping="Wrap"/>
-      <TextBlock Text="Dados locais e registros: %LOCALAPPDATA%\AHNSF Music" Classes="muted" FontSize="12" TextWrapping="Wrap"/>
-    </StackPanel></Border>
-  </StackPanel></ScrollViewer>
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="using:AHNSF.Music.Desktop.Controls" x:Class="AHNSF.Music.Desktop.Views.SettingsView">
+  <Grid ColumnDefinitions="Auto,*">
+    <!-- In-page section index -->
+    <StackPanel Classes="wideOnly" Width="190" Spacing="2" Margin="0,0,24,0">
+      <TextBlock Text="SEÇÕES" Classes="eyebrow" Margin="12,0,0,8"/>
+      <Button Classes="nav" Content="Aparência" Tag="SectionAppearance" Click="OnSectionClick"/>
+      <Button Classes="nav" Content="Biblioteca" Tag="SectionLibrary" Click="OnSectionClick"/>
+      <Button Classes="nav" Content="Reprodução" Tag="SectionPlayback" Click="OnSectionClick"/>
+      <Button Classes="nav" Content="Dispositivos de áudio" Tag="SectionDevices" Click="OnSectionClick"/>
+      <Button Classes="nav" Content="Downloads" Tag="SectionDownloads" Click="OnSectionClick"/>
+      <Button Classes="nav" Content="Inicialização" Tag="SectionStartup" Click="OnSectionClick"/>
+      <Button Classes="nav" Content="Histórico e diagnósticos" Tag="SectionDiagnostics" Click="OnSectionClick"/>
+    </StackPanel>
+    <ScrollViewer Grid.Column="1" x:Name="SettingsScroll" HorizontalScrollBarVisibility="Disabled"><StackPanel Spacing="28" MaxWidth="880" HorizontalAlignment="Left" Margin="0,0,14,12">
+
+      <!-- Aparência -->
+      <StackPanel x:Name="SectionAppearance" Spacing="10">
+        <TextBlock Text="Aparência" Classes="heading"/>
+        <Border Classes="card"><Grid ColumnDefinitions="*,Auto" ColumnSpacing="24">
+          <StackPanel Spacing="16">
+            <StackPanel Spacing="8"><TextBlock Text="Tema" Classes="subheading"/>
+              <ListBox Classes="segmented" ItemsSource="{Binding ThemeModeOptions}" SelectedIndex="{Binding ThemeModeIndex, Mode=TwoWay}" AutomationProperties.Name="Tema"><ListBox.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="2"/></ItemsPanelTemplate></ListBox.ItemsPanel></ListBox>
+              <TextBlock Text="{Binding EffectiveThemeLabel, StringFormat='Tema em uso agora: {0}. A mudança é imediata, sem reiniciar.'}" Classes="caption"/>
+            </StackPanel>
+            <StackPanel Spacing="8"><TextBlock Text="Cor principal" Classes="subheading"/>
+              <ListBox Classes="swatches" ItemsSource="{Binding AccentChoices}" SelectedItem="{Binding SelectedAccent, Mode=TwoWay}" AutomationProperties.Name="Cor principal">
+                <ListBox.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ListBox.ItemsPanel>
+                <ListBox.ItemTemplate><DataTemplate><Panel ToolTip.Tip="{Binding Name}" AutomationProperties.Name="{Binding Name}"><Ellipse Width="28" Height="28" Fill="{Binding Swatch}"/><TextBlock Text="#" IsVisible="{Binding IsCustom}" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Panel></DataTemplate></ListBox.ItemTemplate>
+              </ListBox>
+              <TextBlock Classes="caption"><Run Text="Selecionada: "/><Run Text="{Binding SelectedAccent.Name}" FontWeight="SemiBold"/></TextBlock>
+              <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="10" IsVisible="{Binding IsCustomAccent}">
+                <TextBox Text="{Binding CustomAccentText, Mode=TwoWay}" Watermark="#RRGGBB" Width="150" MaxLength="7" Classes.invalid="{Binding AppearanceNeedsAttention}" AutomationProperties.Name="Cor hexadecimal personalizada"/>
+                <TextBlock Grid.Column="1" Text="Formato #RRGGBB ou #RGB" Classes="caption" VerticalAlignment="Center"/>
+              </Grid>
+            </StackPanel>
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="28">
+              <StackPanel Spacing="8"><TextBlock Text="Densidade" Classes="subheading"/>
+                <ListBox Classes="segmented" ItemsSource="{Binding DensityOptions}" SelectedIndex="{Binding DensityIndex, Mode=TwoWay}" AutomationProperties.Name="Densidade"><ListBox.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="2"/></ItemsPanelTemplate></ListBox.ItemsPanel></ListBox>
+              </StackPanel>
+              <StackPanel Grid.Column="1" Spacing="8"><TextBlock Text="Movimento" Classes="subheading"/>
+                <CheckBox Content="Reduzir animações" IsChecked="{Binding ReducedMotion, Mode=TwoWay}" ToolTip.Tip="Remove transições de cor e movimento opcionais da interface"/>
+              </StackPanel>
+            </Grid>
+            <TextBlock Text="{Binding AppearanceFeedback}" Classes="caption" Classes.warning="{Binding AppearanceNeedsAttention}" TextWrapping="Wrap"/>
+            <Button Content="Restaurar aparência padrão" Classes="link" Command="{Binding RestoreAppearanceCommand}" HorizontalAlignment="Left"/>
+          </StackPanel>
+          <!-- Live preview: uses the active tokens -->
+          <Border Grid.Column="1" Width="260" Background="{DynamicResource BackgroundPrimaryBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="12" Padding="14" VerticalAlignment="Top" AutomationProperties.Name="Prévia do tema">
+            <StackPanel Spacing="10">
+              <TextBlock Text="PRÉVIA" Classes="eyebrow"/>
+              <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="8"><StackPanel Spacing="4">
+                <Border Background="{DynamicResource SurfaceSelectedBrush}" BorderBrush="{DynamicResource AccentPrimaryBrush}" BorderThickness="3,0,0,0" CornerRadius="6" Padding="8,6"><StackPanel Spacing="1"><TextBlock Text="Música selecionada" FontWeight="SemiBold" FontSize="12"/><TextBlock Text="Artista • Álbum" Classes="caption" FontSize="11"/></StackPanel></Border>
+                <Border Background="{DynamicResource SurfaceHoverBrush}" CornerRadius="6" Padding="8,6"><StackPanel Spacing="1"><TextBlock Text="Música atual" Classes="accent" FontWeight="SemiBold" FontSize="12"/><TextBlock Text="Texto secundário" Classes="caption" FontSize="11"/></StackPanel></Border>
+              </StackPanel></Border>
+              <StackPanel Orientation="Horizontal" Spacing="6"><Border Background="{DynamicResource AccentPrimaryBrush}" CornerRadius="8" Padding="12,6"><TextBlock Text="Reproduzir" Foreground="{DynamicResource AccentForegroundBrush}" FontWeight="SemiBold" FontSize="12"/></Border><Border Background="{DynamicResource SurfaceHoverBrush}" CornerRadius="8" Padding="12,6"><TextBlock Text="Secundário" FontWeight="SemiBold" FontSize="12"/></Border></StackPanel>
+              <ProgressBar Value="62" Height="4" MinHeight="4" IsIndeterminate="False"/>
+              <WrapPanel><Border Classes="badge accent" Margin="0,0,6,4"><TextBlock Text="Vigente"/></Border><Border Classes="badge warning" Margin="0,0,6,4"><TextBlock Text="Atenção"/></Border><Border Classes="badge error" Margin="0,0,0,4"><TextBlock Text="Erro"/></Border></WrapPanel>
+            </StackPanel>
+          </Border>
+        </Grid></Border>
+      </StackPanel>
+
+      <!-- Biblioteca -->
+      <StackPanel x:Name="SectionLibrary" Spacing="10">
+        <TextBlock Text="Biblioteca" Classes="heading"/>
+        <Border Classes="card"><StackPanel Spacing="10">
+          <TextBlock Text="Pasta musical" Classes="subheading"/>
+          <TextBlock Text="{Binding MusicDirectory}" TextWrapping="Wrap" Classes="muted"/>
+          <TextBlock Text="{Binding LibraryHealth}" FontSize="12"/>
+          <WrapPanel><Button Content="Selecionar pasta" Classes="accent" Command="{Binding ChooseDirectoryCommand}" Margin="0,0,8,4"/><Button Content="Atualizar biblioteca" Command="{Binding RefreshCommand}" Margin="0,0,8,4" ToolTip.Tip="Reconciliar a pasta agora"/><Button Content="Reindexar todos os metadados" Classes="ghost" Command="{Binding ForceReindexCommand}" Margin="0,0,0,4" ToolTip.Tip="Reler também arquivos cujo tamanho e data não mudaram"/></WrapPanel>
+          <TextBlock Text="As músicas originais são apenas lidas. Nenhum arquivo é alterado." TextWrapping="Wrap" Classes="caption"/>
+        </StackPanel></Border>
+      </StackPanel>
+
+      <!-- Reprodução -->
+      <StackPanel x:Name="SectionPlayback" Spacing="10">
+        <TextBlock Text="Reprodução" Classes="heading"/>
+        <Border Classes="card"><StackPanel Spacing="8">
+          <TextBlock Text="{Binding VolumeLabel}" Classes="subheading"/>
+          <TextBlock Classes="caption"><Run Text="{Binding ShuffleStateLabel}"/><Run Text=" • "/><Run Text="{Binding RepeatStateLabel}"/></TextBlock>
+          <TextBlock Text="O volume, Aleatório e Repetir são salvos automaticamente e ficam no player inferior. A reprodução usa a saída configurada neste aplicativo, sem alterar o volume global do Windows." TextWrapping="Wrap" Classes="caption"/>
+        </StackPanel></Border>
+      </StackPanel>
+
+      <!-- Dispositivos de áudio -->
+      <StackPanel x:Name="SectionDevices" Spacing="10">
+        <TextBlock Text="Dispositivos de áudio" Classes="heading"/>
+        <Border Classes="card" IsVisible="{Binding HasAudioDeviceService}"><StackPanel Spacing="10">
+          <TextBlock Text="Dispositivo de saída" Classes="subheading"/>
+          <CheckBox Content="Utilizar o dispositivo padrão do Windows" IsChecked="{Binding UseDefaultAudioOutput}" IsEnabled="{Binding !IsChangingAudioOutput}"/>
+          <ComboBox ItemsSource="{Binding AudioOutputs}" SelectedItem="{Binding SelectedAudioOutput}" IsEnabled="{Binding IsAudioSelectionEnabled}" HorizontalAlignment="Stretch" PlaceholderText="Escolha a interface de áudio" AutomationProperties.Name="Dispositivo de saída">
+            <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Label}" TextWrapping="Wrap"/></DataTemplate></ComboBox.ItemTemplate>
+          </ComboBox>
+          <WrapPanel><Button Content="Aplicar seleção" Classes="accent" Command="{Binding ApplyAudioOutputCommand}" IsEnabled="{Binding !IsChangingAudioOutput}" Margin="0,0,8,4"/><Button Content="Atualizar dispositivos" Command="{Binding RefreshAudioOutputsCommand}" IsEnabled="{Binding !IsChangingAudioOutput}" Margin="0,0,0,4"/></WrapPanel>
+          <TextBlock Text="{Binding AudioDeviceMessage}" Classes.warning="{Binding AudioDeviceNeedsAttention}" TextWrapping="Wrap"/>
+          <TextBlock Text="{Binding AudioDeviceFeedback}" Classes="muted" TextWrapping="Wrap"/>
+          <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto" RowSpacing="4"><TextBlock Text="Configurado" Classes="muted"/><TextBlock Grid.Column="1" Text="{Binding AudioDeviceConfigured}" TextWrapping="Wrap"/><TextBlock Grid.Row="1" Text="Em uso" Classes="muted"/><TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding AudioDeviceEffective}" TextWrapping="Wrap"/></Grid>
+          <TextBlock Text="Para a mesa USB, escolha a interface específica. Não há troca silenciosa para alto-falantes internos. Se o padrão do Windows mudar, aplique a seleção para autorizar a nova saída. A troca conta como intervenção manual." Classes="caption" TextWrapping="Wrap"/>
+        </StackPanel></Border>
+        <TextBlock Text="Serviço de dispositivos indisponível nesta execução." Classes="muted" IsVisible="{Binding !HasAudioDeviceService}"/>
+      </StackPanel>
+
+      <!-- Downloads (0.8.2 cookie integration; presentation only) -->
+      <StackPanel x:Name="SectionDownloads" Spacing="10">
+        <TextBlock Text="Downloads" Classes="heading"/>
+        <Border Classes="card"><StackPanel Spacing="10">
+          <TextBlock Text="Autenticação YouTube" Classes="subheading"/>
+          <TextBlock Text="{Binding CookieStatus}" Classes.warning="{Binding CookieNeedsAttention}" TextWrapping="Wrap"/>
+          <TextBlock Text="{Binding CookieFilePath}" IsVisible="{Binding HasCookieFile}" Classes="caption" TextWrapping="Wrap"/>
+          <WrapPanel><Button Content="Selecionar arquivo de cookies…" Classes="accent" Command="{Binding SelectCookieFileCommand}" Margin="0,0,8,4"/><Button Content="Verificar arquivo" Command="{Binding CheckCookieFileCommand}" IsEnabled="{Binding HasCookieFile}" Margin="0,0,8,4"/><Button Content="Remover configuração" Classes="ghost danger" Command="{Binding RemoveCookieFileCommand}" IsEnabled="{Binding HasCookieFile}" Margin="0,0,0,4"/></WrapPanel>
+          <TextBlock Text="Opcional. Quando o YouTube pede verificação de acesso, o importador pode usar um arquivo cookies.txt (formato Netscape) exportado da sua própria conta. O aplicativo guarda apenas o caminho e o entrega ao spotDL como --cookie-file; não copia, não registra em logs e não envia o conteúdo para outros serviços. Sem esta configuração, os downloads que não exigem autenticação continuam funcionando." Classes="caption" TextWrapping="Wrap"/>
+          <Border Classes="card alert" Padding="12,10"><TextBlock Text="Atenção: esse arquivo dá acesso à sua sessão Google. Guarde-o fora de pastas compartilhadas e do Git, use uma conta dedicada e substitua o arquivo quando a sessão expirar. Baixar do YouTube pode contrariar os termos do serviço e não concede direitos sobre as músicas; a conta pode ser restringida." Classes="warning" FontSize="12" TextWrapping="Wrap"/></Border>
+        </StackPanel></Border>
+      </StackPanel>
+
+      <!-- Inicialização -->
+      <StackPanel x:Name="SectionStartup" Spacing="10">
+        <TextBlock Text="Inicialização e janela" Classes="heading"/>
+        <Border Classes="card"><StackPanel Spacing="10">
+          <CheckBox Content="Iniciar AHNSF Music com o Windows" IsChecked="{Binding AutoStartEnabled}" ToolTip.Tip="Somente para este usuário do Windows. Não exige administrador."/>
+          <CheckBox Content="Iniciar minimizado na bandeja (somente quando iniciado pelo Windows)" IsChecked="{Binding StartMinimized}" Margin="0,0,0,4"/>
+          <TextBlock Text="{Binding AutoStartText}" TextWrapping="Wrap" Classes="caption"/>
+          <Button Content="Aplicar novamente" Command="{Binding ReapplyAutoStartCommand}" IsVisible="{Binding AutoStartNeedsAttention}" HorizontalAlignment="Left" ToolTip.Tip="Recria, corrige ou remove a entrada de inicialização conforme a opção acima"/>
+          <Border Classes="divider" Margin="0,4"/>
+          <TextBlock Text="Ao fechar a janela" Classes="subheading"/>
+          <RadioButton GroupName="CloseBehavior" Content="Minimizar para a bandeja (a música e a programação continuam)" IsChecked="{Binding CloseToTray}"/>
+          <RadioButton GroupName="CloseBehavior" Content="Encerrar o aplicativo" IsChecked="{Binding CloseExits}"/>
+          <TextBlock Text="{Binding TrayStatusText}" TextWrapping="Wrap" Classes="caption"/>
+          <TextBlock Text="Para encerrar de fato, use “Sair” no menu do ícone da bandeja. Se a música estiver tocando ou o modo Automático estiver ativo, o encerramento pede confirmação." TextWrapping="Wrap" Classes="caption"/>
+        </StackPanel></Border>
+      </StackPanel>
+
+      <!-- Histórico e diagnósticos -->
+      <StackPanel x:Name="SectionDiagnostics" Spacing="10">
+        <TextBlock Text="Histórico e diagnósticos" Classes="heading"/>
+        <Border Classes="card"><StackPanel Spacing="8">
+          <Grid ColumnDefinitions="*,Auto"><StackPanel Spacing="2"><TextBlock Text="Diagnóstico operacional" Classes="subheading"/><TextBlock Text="Estado atual desta máquina. Somente leitura; nada é enviado pela rede." Classes="caption" TextWrapping="Wrap"/></StackPanel><Button Grid.Column="1" Content="Abrir Histórico" Command="{Binding NavigateCommand}" CommandParameter="Histórico" VerticalAlignment="Top"/></Grid>
+          <ItemsControl ItemsSource="{Binding Diagnostics}" Margin="0,6,0,0">
+            <ItemsControl.ItemTemplate><DataTemplate>
+              <Grid ColumnDefinitions="230,*" Margin="0,4"><TextBlock Text="{Binding Label}" Classes="caption" TextWrapping="Wrap" Margin="0,0,12,0"/><TextBlock Grid.Column="1" Text="{Binding Value}" FontSize="12" TextWrapping="Wrap" Classes.warning="{Binding Attention}"/></Grid>
+            </DataTemplate></ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock Text="Registros detalhados: %LOCALAPPDATA%\AHNSF Music\logs • Retenção do histórico: em Histórico." Classes="caption" TextWrapping="Wrap"/>
+        </StackPanel></Border>
+        <Border Classes="card"><StackPanel Spacing="6">
+          <TextBlock Text="Atalhos de teclado" Classes="subheading"/>
+          <TextBlock Text="Ctrl+1 a Ctrl+8: Início, Biblioteca, Playlists, Fila, Programação, Configurações, Histórico e Importar músicas" Classes="caption" TextWrapping="Wrap"/>
+          <TextBlock Text="Ctrl+F: pesquisar na biblioteca  •  Esc: cancelar confirmação aberta (o foco fica preso na janela de confirmação)  •  Tab: percorrer controles" Classes="caption" TextWrapping="Wrap"/>
+          <TextBlock Text="Dados locais e registros: %LOCALAPPDATA%\AHNSF Music" Classes="caption" TextWrapping="Wrap"/>
+        </StackPanel></Border>
+      </StackPanel>
+    </StackPanel></ScrollViewer>
+  </Grid>
 </UserControl>

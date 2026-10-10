@@ -53,7 +53,7 @@ public sealed class PlaylistDownloadTests
         public PlaylistImportService Service { get; private set; } = null!;
         public OperationalHistoryService? History { get; private set; }
         public SpotDlProcessAdapter Adapter { get; private set; } = null!;
-        public async Task StartAsync(string json, TimeSpan? perTrack = null, bool history = false)
+        public async Task StartAsync(string json, TimeSpan? perTrack = null, bool history = false, YouTubeCookieSetting? cookies = null)
         {
             Directory.CreateDirectory(Tool);
             await File.WriteAllTextAsync(Path.Combine(Tool, "spotdl.ps1"), FakeSpotDl);
@@ -61,7 +61,7 @@ public sealed class PlaylistDownloadTests
             await F.StartAsync();
             Playlists = new SqlitePlaylistService(F.Database, F.Repository);
             Adapter = new SpotDlProcessAdapter(F.Base, new(PowerShell(), ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", Path.Combine(Tool, "spotdl.ps1")],
-                Path.Combine(Tool, "ffmpeg.exe")), perTrack);
+                Path.Combine(Tool, "ffmpeg.exe")), perTrack, cookies: cookies);
             if (history) { History = new(new SqliteOperationalHistoryRepository(F.Database, F.Repository)); await History.StartAsync(false); }
             Service = new PlaylistImportService(Adapter, F.Service, Playlists, F.Metadata, History);
         }

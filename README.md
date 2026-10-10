@@ -249,7 +249,7 @@ Cada faixa não obtida mostra o motivo no resumo, e o Histórico registra a cont
 
 | Motivo exibido | Origem típica | O que fazer |
 |---|---|---|
-| A fonte (YouTube) pediu verificação de acesso (“confirme que não é um robô”) | yt-dlp: `Sign in to confirm you're not a bot`, HTTP 403/429 | Bloqueio do YouTube por acesso/rede. O aplicativo não usa contas, cookies nem mecanismos de evasão; tente mais tarde, em outra rede ou use outra fonte autorizada. |
+| O YouTube solicitou uma verificação de autenticação | yt-dlp: `Sign in to confirm you're not a bot`, HTTP 403/429 | Configure ou atualize o arquivo de cookies em **Configurações → Downloads** (botão “Abrir configurações de downloads” na importação) ou tente mais tarde/em outra rede. |
 | A fonte exigiu o runtime Deno | aviso `Some YouTube downloads require Deno`, falha de *n challenge* | Incluir `Tools/deno` verificado no pacote. |
 | Nenhuma correspondência / indisponível | `LookupError`, vídeo indisponível ou privado | Faixa sem fonte; não há nova tentativa automática. |
 | O FFmpeg não conseguiu converter | `FFmpegError` | Verificar o pacote/FFmpeg e os logs. |
@@ -273,3 +273,49 @@ Layout no pacote, ao lado de `AHNSF.Music.Desktop.exe`: `Tools/manifest.json`, `
 `scripts/prepare-import-tools.ps1` recebe a publicação nova, `spotdl.exe` com seu SHA-256 publicado e licença, e o FFmpeg como executável+hash ou como **zip + hash publicado do zip** (`-FFmpegArchive`/`-FFmpegArchiveSha256`); nesse caso o hash do `ffmpeg.exe` é derivado somente do pacote verificado. O Deno opcional entra da mesma forma (`-DenoArchive`, `-DenoArchiveSha256`, `-DenoLicense`). Se `Tools/deno/deno.exe` existir, versão e SHA-256 do manifesto são obrigatórios; sem Deno o importador funciona e avisa que alguns downloads do YouTube podem falhar. O script confere versões, copia sem sobrescrever e preenche o manifesto; não baixa nada nem exige administrador. O manifesto do repositório mantém SHA-256 vazio, o que bloqueia a execução em compilações de desenvolvimento sem pacote verificado.
 
 Pendências para o instalador: incluir `Tools/` e licenças, distribuir/oferecer o código-fonte correspondente do FFmpeg (GPLv3), revisar licenças das dependências empacotadas pelo spotDL, decidir sobre Deno, validar em máquina limpa sem Python/PATH/administrador e em pasta com espaços. O executável PyInstaller extrai arquivos em `%TEMP%` a cada execução (alguns segundos na primeira chamada); antivírus corporativos podem precisar de liberação.
+
+### Autenticação YouTube (cookies)
+
+Em **Configurações → Downloads → Autenticação YouTube**, **Selecionar arquivo de cookies…** aceita um `cookies.txt` no formato Netscape exportado da sua própria conta. O aplicativo confere existência, tamanho e o cabeçalho `# Netscape HTTP Cookie File`, salva **apenas o caminho** no JSON de configurações e, em cada download (faixa ou playlist), acrescenta `--cookie-file <caminho>` ao spotDL como argumento separado, com uma faixa por vez (`--threads 1`). Sem configuração, o comando é o mesmo de antes. **Verificar arquivo** reavalia o caminho; **Remover configuração** apaga só o caminho salvo, nunca o arquivo. Caminho configurado que sumiu ou ficou inválido interrompe o download antes de iniciar o spotDL, com a orientação na tela.
+
+O aplicativo não copia, não registra em logs, não grava no banco e não envia o conteúdo dos cookies; quem lê o arquivo é o yt-dlp embutido no spotDL, que também pode regravá-lo ao terminar (comportamento do yt-dlp). Não há teste de autenticação por rede: validar o formato não prova que a sessão será aceita; só um download mostra isso. A pasta `secrets/` do repositório está no `.gitignore`, e nenhum cookie entra em builds ou pacotes.
+
+Atenção: o arquivo dá acesso à sessão Google; use uma conta dedicada. Baixar do YouTube pode contrariar os termos do serviço, a conta pode ser restringida, e a autenticação não concede direito de uso das músicas — a confirmação de autorização antes de **Baixar** continua obrigatória.
+
+## Redesign visual e temas — Fase 0.8.3
+
+A interface deixou o visual de painel administrativo e passou a seguir um layout de aplicativo musical, com menos bordas, superfícies em vez de contornos, tipografia em escala única (título 26, seção 17, subtítulo 14, corpo 13, legenda 12) e espaçamentos consistentes. Fluxos, comandos, atalhos (Ctrl+1 a Ctrl+8, Ctrl+F, Esc) e serviços não mudaram; a fase alterou apenas apresentação e preferências visuais.
+
+- **Barra lateral:** grupos Ouvir, Operação e Sistema, item ativo com barra de destaque, e um cartão com o modo Manual/Automático no rodapé (o selo duplicado do cabeçalho foi removido).
+- **Início:** “Tocando agora” com capa grande, título, artista, origem e botões Reproduzir/Abrir fila; cartão de programação (regra vigente/prevista, próxima transição, fim previsto); atalhos para Biblioteca, Playlists e Fila; “Suas playlists” em blocos (abrir não inicia reprodução); histórico em uma linha discreta.
+- **Biblioteca:** cabeçalho de colunas alinhado às linhas dentro da lista, capas de 40 px, duração alinhada à direita, busca e filtros numa linha, ações de seleção que quebram linha em janelas estreitas, estados de carregamento e vazio.
+- **Playlists:** cabeçalho com capa (inicial do nome sobre a cor de destaque), nome, descrição, quantidade e duração; Reproduzir e Aleatório em destaque, Editar e Excluir discretos. Arrastar para reordenar, seleção múltipla e remoção continuam iguais.
+- **Fila:** cartão com a música atual e selos de origem, quantidade, posição, Aleatório e Repetição; a ocorrência atual aparece com ícone e título na cor de destaque. IDs de ocorrência e independência das playlists não mudaram.
+- **Programação:** linha do tempo semanal (0–24 h) com blocos por regra: vigente na cor de destaque, sobreposição em âmbar, desativada esmaecida; passar o mouse mostra playlist, volume e prioridade. A lista textual por dia, com lacunas, ficou em “Detalhes por dia”. O motor de agendamento não foi alterado.
+- **Importar músicas:** etapas numeradas (1 Link, 2 Prévia), campo de URL largo, status de cada faixa em selo, barra de ações com progresso. Fluxo Link → Analisar → Prévia → Baixar → Progresso → Resultado e lógica spotDL/cookies inalterados.
+- **Configurações:** índice de seções (Aparência, Biblioteca, Reprodução, Dispositivos de áudio, Downloads, Inicialização, Histórico e diagnósticos) e prévia ao vivo do tema.
+- **Histórico:** filtros rotulados, retenção na mesma faixa, colunas com cabeçalho, detalhes do evento em cartão e paginação à direita. Persistência, CSV e paginação inalterados.
+- **Player:** esquerda capa/título/artista/origem; centro Parar, Anterior, Reproduzir/Pausar (circular), Próxima, progresso e tempos; direita saída de áudio em uso, Aleatório, Repetição e volume. Em janelas estreitas o nome da saída é ocultado. Engine NAudio e roteamento WASAPI inalterados.
+- **Telas:** conteúdo limitado a 1560 px e centralizado em monitores largos; abaixo de 1080 px de largura a barra lateral, o painel e as colunas encolhem; abaixo de 800 px de altura margens, navegação e cabeçalhos ficam compactos.
+
+### Aparência (Configurações → Aparência)
+
+| Preferência | Opções | Padrão |
+|---|---|---|
+| Tema | Escuro, Claro, Seguir o tema do Windows | Escuro |
+| Cor principal | Verde-água AHNSF, Azul, Roxo, Laranja, Rosa, Vermelho, Neutro, Personalizada (#RRGGBB ou #RGB) | Verde-água AHNSF |
+| Densidade | Confortável, Compacta | Confortável |
+| Reduzir animações | sim/não | não |
+
+As mudanças valem na hora, sem reiniciar, e são salvas no JSON de Settings existente (`Appearance`). Configurações antigas sem esse campo abrem com os padrões; valores inválidos ou editados à mão voltam ao padrão. Cor hexadecimal inválida não é aplicada nem salva (a anterior é mantida, com aviso). Qualquer cor escolhida é ajustada automaticamente, só o necessário, para manter contraste mínimo: 4,5:1 para textos (inclusive o texto sobre o botão principal e o texto de destaque) e 3:1 para o botão principal sobre o fundo; a tela avisa quando houve ajuste. Seguir o Windows acompanha a troca claro/escuro do sistema enquanto o aplicativo está aberto. “Reduzir animações” remove as transições de cor de botões e listas; a barra de progresso indeterminada do Fluent continua animada.
+
+### Arquitetura de temas
+
+- `Core/Appearance.cs`: `AppearanceSettings` (preferências persistidas, normalização e validação hexadecimal) e presets.
+- `Desktop/Theming/ThemePalette.cs`: cálculo puro dos tokens semânticos (BackgroundPrimary, BackgroundSecondary, Surface, SurfaceHover, SurfaceSelected, SurfaceRaised, TextPrimary, TextSecondary, TextDisabled, BorderSubtle, BorderStrong, AccentPrimary, AccentHover, AccentPressed, AccentForeground, AccentText, AccentSubtle, FocusRing, Success, Warning, Error e variantes Subtle, Overlay) com contraste WCAG garantido.
+- `Desktop/Theming/ThemeService.cs`: aplica as preferências; não lê nem grava Settings (quem persiste é `MainViewModel.Appearance`) e não toca player, fila, dispositivos ou agendador. Alterar a aparência não conta como intervenção manual.
+- `Desktop/Theming/AvaloniaTheme.cs`: escreve `<Token>Brush`/`<Token>Color` em `Application.Resources` recolorindo os mesmos pincéis (atualização ao vivo), ajusta `RequestedThemeVariant` e as cores de destaque do Fluent; lê o tema do Windows; `ToneBrushConverter` traduz tons semânticos do ViewModel (antes eram hex) em pincéis.
+- `Styles/DesignSystem.axaml`: estilos e tokens de fallback; Views usam apenas `{DynamicResource …Brush}`. Os nomes antigos (CanvasBrush, AccentBrush etc.) continuam como apelidos.
+- Densidade e animações reduzidas são classes da janela (`densityCompact`, `reducedMotion`).
+
+Capturas antes/depois: `docs/capturas/0.8.3/` (`antes/` e `depois/`).

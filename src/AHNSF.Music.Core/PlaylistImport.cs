@@ -43,7 +43,7 @@ public static class ImportFailures
     public static string Describe(ImportFailureKind kind) => kind switch
     {
         ImportFailureKind.NotFound => "Nenhuma correspondência encontrada na fonte de áudio.",
-        ImportFailureKind.SourceVerification => "A fonte (YouTube) pediu verificação de acesso (\"confirme que não é um robô\"). O aplicativo não usa contas nem cookies; tente mais tarde ou use outra fonte autorizada.",
+        ImportFailureKind.SourceVerification => "O YouTube solicitou uma verificação de autenticação. Configure ou atualize seu arquivo de cookies nas configurações de downloads.",
         ImportFailureKind.RuntimeMissing => "A fonte exigiu o runtime Deno, ausente ou inválido no pacote.",
         ImportFailureKind.Conversion => "O FFmpeg não conseguiu converter o áudio.",
         ImportFailureKind.Network => "Falha de conexão com a fonte de áudio.",

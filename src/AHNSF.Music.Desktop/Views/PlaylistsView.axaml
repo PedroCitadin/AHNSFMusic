@@ -1,54 +1,66 @@
-<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Class="AHNSF.Music.Desktop.Views.PlaylistsView">
-  <Grid ColumnDefinitions="220,*">
-    <Grid RowDefinitions="Auto,Auto,*" Margin="0,0,16,0">
-      <Button Content="+ Nova playlist" Classes="accent" Command="{Binding NewPlaylistCommand}" HorizontalAlignment="Stretch" Margin="0,0,0,12" ToolTip.Tip="Criar uma playlist vazia"/>
-      <TextBlock Grid.Row="1" Text="PLAYLISTS SALVAS" Classes="eyebrow" Margin="4,0,0,8"/>
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="using:AHNSF.Music.Desktop.Controls" x:Class="AHNSF.Music.Desktop.Views.PlaylistsView">
+  <Grid ColumnDefinitions="240,*">
+    <!-- Saved playlists -->
+    <Grid RowDefinitions="Auto,Auto,*" Margin="0,0,20,0">
+      <Button Classes="accent" Command="{Binding NewPlaylistCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,0,0,14" ToolTip.Tip="Criar uma playlist vazia"><StackPanel Orientation="Horizontal" Spacing="8"><Path Classes="icon" Data="{StaticResource PlusIcon}" Width="12" Height="12"/><TextBlock Text="Nova playlist"/></StackPanel></Button>
+      <TextBlock Grid.Row="1" Text="PLAYLISTS SALVAS" Classes="eyebrow" Margin="6,0,0,8"/>
       <Border Grid.Row="2" Classes="list">
         <Grid>
           <ListBox ItemsSource="{Binding Playlists}" SelectedItem="{Binding SelectedPlaylist, Mode=TwoWay}" AutomationProperties.Name="Playlists salvas"><ListBox.ItemTemplate><DataTemplate>
-            <StackPanel Spacing="2" Margin="0,2"><TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}"/><TextBlock Text="★ Playlist padrão" IsVisible="{Binding IsDefault}" Foreground="{StaticResource AccentBrush}" FontSize="11"/></StackPanel>
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10" Margin="0,2">
+              <Border Classes="cover" Width="36" Height="36" CornerRadius="6"><TextBlock Text="{Binding Name, Converter={x:Static controls:TextConverters.Initial}}" Classes="accent" FontWeight="Bold" FontSize="15" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+              <StackPanel Grid.Column="1" Spacing="1" VerticalAlignment="Center"><TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}"/><TextBlock Text="Playlist padrão" IsVisible="{Binding IsDefault}" Classes="caption accent" FontSize="11"/></StackPanel>
+            </Grid>
           </DataTemplate></ListBox.ItemTemplate></ListBox>
           <TextBlock Text="Nenhuma playlist salva. Use “Nova playlist” para começar." IsVisible="{Binding HasNoPlaylists}" Classes="muted" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" Margin="16"/>
         </Grid>
       </Border>
     </Grid>
-    <Grid Grid.Column="1" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto">
-      <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,12">
-        <StackPanel Spacing="4"><TextBlock Text="{Binding PlaylistTitle}" Classes="heading" FontSize="22" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding SavedDescription}" Classes="muted" TextWrapping="Wrap" MaxHeight="40" IsVisible="{Binding SavedDescription, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/><TextBlock Text="{Binding PlaylistSummary}" Classes="muted" FontSize="12"/></StackPanel>
-        <TextBlock Grid.Column="1" Text="★ Padrão" IsVisible="{Binding SelectedPlaylist.IsDefault, FallbackValue=False}" Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold" VerticalAlignment="Top" Margin="12,6,0,0" ToolTip.Tip="Playlist padrão; defini-la não inicia reprodução"/>
+    <!-- Selected playlist -->
+    <Grid Grid.Column="1" RowDefinitions="Auto,Auto,Auto,*,Auto">
+      <Grid ColumnDefinitions="Auto,*" ColumnSpacing="22" Margin="0,0,0,16">
+        <Border Classes="cover tallOnlyCover" Width="128" Height="128"><TextBlock Text="{Binding PlaylistInitial}" Classes="accent" FontSize="52" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+        <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Bottom">
+          <StackPanel Orientation="Horizontal" Spacing="8"><TextBlock Text="PLAYLIST" Classes="eyebrow"/><Border Classes="badge accent" IsVisible="{Binding SelectedPlaylist.IsDefault, FallbackValue=False}" ToolTip.Tip="Playlist padrão; defini-la não inicia reprodução"><TextBlock Text="Padrão"/></Border></StackPanel>
+          <TextBlock Text="{Binding PlaylistTitle}" Classes="display" TextTrimming="CharacterEllipsis"/>
+          <TextBlock Text="{Binding SavedDescription}" Classes="muted" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" IsVisible="{Binding SavedDescription, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+          <TextBlock Text="{Binding PlaylistSummary}" Classes="caption" FontWeight="SemiBold"/>
+          <Panel IsVisible="{Binding SelectedPlaylist, Converter={x:Static ObjectConverters.IsNotNull}}" Margin="0,10,0,0"><WrapPanel IsVisible="{Binding !IsPlaylistEditorVisible}">
+            <Button Classes="accent large" Command="{Binding PlayPlaylistCommand}" Margin="0,0,8,4" ToolTip.Tip="Carregar a playlist na fila, em ordem manual" AutomationProperties.Name="Reproduzir playlist"><StackPanel Orientation="Horizontal" Spacing="8"><Path Classes="icon filled" Data="{StaticResource PlayIcon}" Width="13" Height="13"/><TextBlock Text="Reproduzir"/></StackPanel></Button>
+            <Button Classes="large" Command="{Binding ShufflePlaylistCommand}" Margin="0,0,8,4" ToolTip.Tip="Carregar a playlist com shuffle; a ordem salva não muda" AutomationProperties.Name="Aleatório"><StackPanel Orientation="Horizontal" Spacing="8"><Path Classes="icon" Data="{StaticResource ShuffleIcon}" Width="14" Height="14" Stroke="{DynamicResource TextPrimaryBrush}"/><TextBlock Text="Aleatório"/></StackPanel></Button>
+            <Button Content="Editar" Classes="ghost" Command="{Binding EditPlaylistCommand}" Margin="0,0,4,4" VerticalAlignment="Center" ToolTip.Tip="Renomear, mudar descrição ou definir como padrão"/>
+            <Button Content="Excluir" Classes="ghost danger" Command="{Binding RequestDeletePlaylistCommand}" Margin="0,0,0,4" VerticalAlignment="Center" ToolTip.Tip="Excluir a playlist (pede confirmação; arquivos preservados)"/>
+          </WrapPanel></Panel>
+        </StackPanel>
       </Grid>
-      <Panel Grid.Row="1" IsVisible="{Binding SelectedPlaylist, Converter={x:Static ObjectConverters.IsNotNull}}"><WrapPanel Margin="0,0,0,10" IsVisible="{Binding !IsPlaylistEditorVisible}">
-        <Button Classes="accent" Command="{Binding PlayPlaylistCommand}" Margin="0,0,6,6" ToolTip.Tip="Carregar a playlist na fila, em ordem manual" AutomationProperties.Name="Reproduzir playlist"><StackPanel Orientation="Horizontal" Spacing="8"><Path Classes="icon" Data="{StaticResource PlayIcon}" Stroke="{StaticResource OnAccentBrush}" Width="14" Height="14"/><TextBlock Text="Reproduzir"/></StackPanel></Button>
-        <Button Content="Aleatório" Command="{Binding ShufflePlaylistCommand}" Margin="0,0,6,6" ToolTip.Tip="Carregar a playlist com shuffle; a ordem salva não muda"/>
-        <Button Content="Editar" Command="{Binding EditPlaylistCommand}" Margin="0,0,6,6" ToolTip.Tip="Renomear, mudar descrição ou definir como padrão"/>
-        <Button Content="Excluir" Classes="danger" Command="{Binding RequestDeletePlaylistCommand}" Margin="0,0,0,6" ToolTip.Tip="Excluir a playlist (pede confirmação; arquivos preservados)"/>
-      </WrapPanel></Panel>
-      <Border Grid.Row="2" Classes="card" IsVisible="{Binding IsPlaylistEditorVisible}" Margin="0,0,0,10">
-        <StackPanel Spacing="8">
+      <Border Grid.Row="1" Classes="card" IsVisible="{Binding IsPlaylistEditorVisible}" Margin="0,0,0,12">
+        <StackPanel Spacing="8" MaxWidth="640" HorizontalAlignment="Left">
           <TextBlock Text="Dados da playlist" Classes="heading"/>
-          <TextBlock Text="Nome" Classes="eyebrow"/><TextBox Text="{Binding PlaylistName, Mode=TwoWay}" Watermark="Nome obrigatório" MaxLength="200"/>
-          <TextBlock Text="Descrição" Classes="eyebrow"/><TextBox Text="{Binding PlaylistDescription, Mode=TwoWay}" Watermark="Descrição opcional" MaxLength="2000"/>
+          <TextBlock Text="Nome" Classes="caption"/><TextBox Text="{Binding PlaylistName, Mode=TwoWay}" Watermark="Nome obrigatório" MaxLength="200" AutomationProperties.Name="Nome da playlist"/>
+          <TextBlock Text="Descrição" Classes="caption"/><TextBox Text="{Binding PlaylistDescription, Mode=TwoWay}" Watermark="Descrição opcional" MaxLength="2000" AutomationProperties.Name="Descrição da playlist"/>
           <CheckBox Content="Playlist padrão" IsChecked="{Binding PlaylistDefault, Mode=TwoWay}" ToolTip.Tip="Somente uma playlist pode ser a padrão"/>
-          <StackPanel Orientation="Horizontal" Spacing="8"><Button Content="Salvar" Classes="accent" Command="{Binding SavePlaylistCommand}"/><Button Content="Cancelar" Command="{Binding CancelPlaylistEditCommand}"/></StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0"><Button Content="Salvar" Classes="accent" Command="{Binding SavePlaylistCommand}"/><Button Content="Cancelar" Command="{Binding CancelPlaylistEditCommand}"/></StackPanel>
         </StackPanel>
       </Border>
-      <Border Grid.Row="3" Classes="card danger" IsVisible="{Binding DeleteConfirmation}" Margin="0,0,0,10">
-        <StackPanel Spacing="8"><TextBlock Text="{Binding DeletePrompt}" TextWrapping="Wrap"/><StackPanel Orientation="Horizontal" Spacing="8"><Button Content="Confirmar exclusão" Classes="danger" Command="{Binding ConfirmDeletePlaylistCommand}"/><Button Content="Cancelar" Command="{Binding CancelDeletePlaylistCommand}"/></StackPanel></StackPanel>
+      <Border Grid.Row="2" Classes="card danger" IsVisible="{Binding DeleteConfirmation}" Margin="0,0,0,12">
+        <StackPanel Spacing="10"><TextBlock Text="{Binding DeletePrompt}" TextWrapping="Wrap"/><StackPanel Orientation="Horizontal" Spacing="8"><Button Content="Confirmar exclusão" Classes="danger" Command="{Binding ConfirmDeletePlaylistCommand}"/><Button Content="Cancelar" Command="{Binding CancelDeletePlaylistCommand}"/></StackPanel></StackPanel>
       </Border>
-      <Border Grid.Row="4" Classes="list" IsVisible="{Binding !IsPlaylistEditorVisible}">
-        <Grid>
-          <ListBox x:Name="PlaylistList" ItemsSource="{Binding PlaylistRows}" ItemTemplate="{StaticResource OccurrenceTemplate}" SelectionMode="Multiple" SelectedItems="{Binding SelectedPlaylistRows}" SelectedItem="{Binding SelectedPlaylistRow, Mode=TwoWay}" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Músicas da playlist" ToolTip.Tip="Arraste uma linha sobre outra para reordenar • duplo clique reproduz"><ListBox.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel/></ItemsPanelTemplate></ListBox.ItemsPanel></ListBox>
-          <TextBlock Text="Carregando playlist…" IsVisible="{Binding IsLoadingPlaylist}" Classes="muted" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-          <StackPanel IsVisible="{Binding ShowPlaylistEmpty}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10" Margin="20" MaxWidth="380">
-            <TextBlock Text="♫" FontSize="34" Foreground="{StaticResource MutedBrush}" HorizontalAlignment="Center"/>
+      <Border Grid.Row="3" Classes="list" IsVisible="{Binding !IsPlaylistEditorVisible}">
+        <Grid RowDefinitions="Auto,Auto,*">
+          <Grid ColumnDefinitions="36,52,*,Auto,60" Margin="13,8,10,8"><TextBlock Text="#" Classes="eyebrow" HorizontalAlignment="Center"/><TextBlock Grid.Column="2" Text="TÍTULO" Classes="eyebrow"/><TextBlock Grid.Column="4" Text="DURAÇÃO" Classes="eyebrow" HorizontalAlignment="Right" Margin="0,0,6,0"/></Grid>
+          <Border Grid.Row="1" Classes="divider" Margin="8,0,8,4"/>
+          <ListBox Grid.Row="2" x:Name="PlaylistList" ItemsSource="{Binding PlaylistRows}" ItemTemplate="{StaticResource OccurrenceTemplate}" SelectionMode="Multiple" SelectedItems="{Binding SelectedPlaylistRows}" SelectedItem="{Binding SelectedPlaylistRow, Mode=TwoWay}" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Músicas da playlist" ToolTip.Tip="Arraste uma linha sobre outra para reordenar • duplo clique reproduz"><ListBox.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel/></ItemsPanelTemplate></ListBox.ItemsPanel></ListBox>
+          <StackPanel Grid.Row="2" IsVisible="{Binding IsLoadingPlaylist}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10"><ProgressBar IsIndeterminate="True" Width="140" Height="4" MinHeight="4"/><TextBlock Text="Carregando playlist…" Classes="muted"/></StackPanel>
+          <StackPanel Grid.Row="2" IsVisible="{Binding ShowPlaylistEmpty}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10" Margin="20" MaxWidth="380">
+            <Border Width="64" Height="64" CornerRadius="32" Background="{DynamicResource AccentSubtleBrush}" HorizontalAlignment="Center"><Path Classes="icon accentIcon" Data="{StaticResource PlaylistIcon}" Width="24" Height="24"/></Border>
             <TextBlock Text="{Binding PlaylistEmptyText}" Classes="muted" TextWrapping="Wrap" TextAlignment="Center"/>
             <Button Content="Abrir biblioteca" Command="{Binding NavigateCommand}" CommandParameter="Biblioteca" IsVisible="{Binding SelectedPlaylist, Converter={x:Static ObjectConverters.IsNotNull}}" HorizontalAlignment="Center"/>
           </StackPanel>
         </Grid>
       </Border>
-      <Panel Grid.Row="5" IsVisible="{Binding SelectedPlaylist, Converter={x:Static ObjectConverters.IsNotNull}}"><Grid ColumnDefinitions="*,Auto" Margin="0,10,0,0" IsVisible="{Binding !IsPlaylistEditorVisible}">
-        <TextBlock Text="{Binding PlaylistSelectionText}" Classes="muted" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-        <WrapPanel Grid.Column="1"><Button Content="↑ Mover para cima" Command="{Binding MovePlaylistUpCommand}" Margin="0,0,6,0" ToolTip.Tip="Mover a ocorrência selecionada uma posição acima"/><Button Content="↓ Mover para baixo" Command="{Binding MovePlaylistDownCommand}" Margin="0,0,6,0" ToolTip.Tip="Mover a ocorrência selecionada uma posição abaixo"/><Button Content="Remover selecionadas…" Classes="danger" Command="{Binding RequestRemovePlaylistItemsCommand}" ToolTip.Tip="Remove somente as ocorrências desta playlist (pede confirmação)"/></WrapPanel>
+      <Panel Grid.Row="4" IsVisible="{Binding SelectedPlaylist, Converter={x:Static ObjectConverters.IsNotNull}}"><Grid ColumnDefinitions="*,Auto" Margin="0,10,0,0" IsVisible="{Binding !IsPlaylistEditorVisible}">
+        <TextBlock Text="{Binding PlaylistSelectionText}" Classes="caption" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+        <WrapPanel Grid.Column="1"><Button Content="↑ Mover para cima" Classes="ghost" Command="{Binding MovePlaylistUpCommand}" Margin="0,0,4,0" ToolTip.Tip="Mover a ocorrência selecionada uma posição acima"/><Button Content="↓ Mover para baixo" Classes="ghost" Command="{Binding MovePlaylistDownCommand}" Margin="0,0,8,0" ToolTip.Tip="Mover a ocorrência selecionada uma posição abaixo"/><Button Content="Remover selecionadas…" Classes="danger" Command="{Binding RequestRemovePlaylistItemsCommand}" ToolTip.Tip="Remove somente as ocorrências desta playlist (pede confirmação)"/></WrapPanel>
       </Grid></Panel>
     </Grid>
   </Grid>

@@ -23,7 +23,8 @@ public sealed record AppSettings(string? MusicDirectory = null, float Volume = 0
     bool Shuffle = false, RepeatMode Repeat = RepeatMode.Off,
     bool AutoStartEnabled = false, bool StartMinimized = false,
     CloseBehavior CloseBehavior = CloseBehavior.MinimizeToTray, bool CloseNoticeShown = false,
-    AudioDeviceSelection? AudioDevice = null, int HistoryRetentionDays = 90);
+    AudioDeviceSelection? AudioDevice = null, int HistoryRetentionDays = 90, string? YouTubeCookieFile = null,
+    AppearanceSettings? Appearance = null);
 public enum CloseBehavior { MinimizeToTray, Exit }
 public sealed record ScanResult(IReadOnlyList<Track> Tracks, IReadOnlyList<string> Warnings);
 public interface IMusicScanner { Task<ScanResult> ScanAsync(string directory, CancellationToken cancellationToken); }

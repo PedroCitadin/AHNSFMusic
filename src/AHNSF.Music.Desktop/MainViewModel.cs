@@ -69,9 +69,9 @@ public partial class MainViewModel : ObservableObject, IDisposable, IAsyncDispos
     public MainViewModel(IAudioEngine audio, IMusicScanner scanner, ISettingsStore store, ILogger logger, ILibraryService? library = null,
         IPlaylistService? playlists = null, PlaybackService? playback = null, IScheduleService? scheduleStore = null, ScheduleCoordinator? scheduler = null,
         AutoStartService? autoStart = null, IAudioDeviceService? audioDevices = null, IOperationalHistoryService? history = null,
-        IPlaylistImportService? importService = null)
+        IPlaylistImportService? importService = null, YouTubeCookieSetting? cookieSetting = null)
     {
-        this.audio = audio; this.scanner = scanner; this.store = store; this.logger = logger; this.autoStart = autoStart; this.audioDevices = audioDevices; this.history = history; this.importService = importService;
+        this.audio = audio; this.scanner = scanner; this.store = store; this.logger = logger; this.autoStart = autoStart; this.audioDevices = audioDevices; this.history = history; this.importService = importService; this.cookieSetting = cookieSetting;
         HistoryType = HistoryTypes[0]; HistorySeverity = HistorySeverities[0];
         this.library = library;
         this.playlists = playlists;
@@ -93,6 +93,8 @@ public partial class MainViewModel : ObservableObject, IDisposable, IAsyncDispos
         catch (Exception ex) { Error(ex, "Não foi possível carregar as configurações. Serão usados os valores padrão."); }
         if (disposed) return;
         LoadPreferences();
+        LoadCookieSetting();
+        LoadAppearance();
         if (history is not null) { await history.StartAsync(LaunchedByWindows, settings.HistoryRetentionDays); HistoryRetentionDays = settings.HistoryRetentionDays is 30 or 90 or 180 or 365 ? settings.HistoryRetentionDays : 90; await RefreshHistorySummaryAsync(); }
         await InitializeAudioDevicesAsync();
         Volume = Math.Clamp(settings.Volume * 100, 0, 100);

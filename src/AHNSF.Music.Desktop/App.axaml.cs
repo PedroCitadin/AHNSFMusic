@@ -2,6 +2,7 @@ using AHNSF.Music.Audio;
 using AHNSF.Music.Core;
 using AHNSF.Music.Desktop.Platform;
 using AHNSF.Music.Desktop.Shell;
+using AHNSF.Music.Desktop.Theming;
 using AHNSF.Music.Infrastructure;
 using Avalonia;
 using Avalonia.Controls;
@@ -57,9 +58,11 @@ public partial class App : Application
                 .AddSingleton<IArtworkCache>(new ArtworkCache(Path.Combine(data, "artwork"), Log.Logger))
                 .AddSingleton<ITrackMetadataReader, TrackMetadataReader>()
                 .AddSingleton<ILibraryService, LibraryService>()
-                .AddSingleton<IImportMetadataProvider>(new SpotDlProcessAdapter(AppContext.BaseDirectory, Log.Logger))
+                .AddSingleton<YouTubeCookieSetting>()
+                .AddSingleton<IImportMetadataProvider>(provider => new SpotDlProcessAdapter(AppContext.BaseDirectory, Log.Logger, provider.GetRequiredService<YouTubeCookieSetting>()))
                 .AddSingleton<IPlaylistImportService, PlaylistImportService>()
                 .AddSingleton(new AutoStartService(new WindowsStartupRegistry(), Environment.ProcessPath))
+                .AddSingleton(new ThemeService(new ApplicationThemeTarget(this), new PlatformSystemThemeSource(PlatformSettings)))
                 .AddSingleton<MainViewModel>().BuildServiceProvider();
             Controls.ArtworkView.ResolvePath = services.GetRequiredService<IArtworkCache>().GetPath;
             Controls.ArtworkView.LogError = ex => Log.Warning(ex, "Falha ao carregar miniatura na interface");
@@ -68,7 +71,10 @@ public partial class App : Application
             if (Instance?.RecoveredAbandoned == true) Log.Warning("A execução anterior terminou de forma inesperada; o controle de instância única foi recuperado");
             var icon = TrayMenu.CreateIcon();
             history = services.GetRequiredService<IOperationalHistoryService>();
+            var theme = services.GetRequiredService<ThemeService>();
+            theme.Apply(new AppearanceSettings());
             viewModel = services.GetRequiredService<MainViewModel>();
+            viewModel.AttachTheme(theme);
             viewModel.LaunchedByWindows = autoLaunch;
             window = new MainWindow(viewModel) { Icon = icon };
             window.CloseRequested += OnWindowCloseRequested;
@@ -93,10 +99,15 @@ public partial class App : Application
     private async Task StartAsync(bool autoLaunch)
     {
         var hidden = false;
+        AppSettings? stored = null;
+        try { stored = await services!.GetRequiredService<ISettingsStore>().LoadAsync(); }
+        catch (Exception ex) { Log.Warning(ex, "Preferências não puderam ser lidas antes de exibir a janela; serão usados os padrões"); }
+        // Theme first, so the window never flashes the default appearance.
+        if (stored?.Appearance is { } appearance) services!.GetRequiredService<ThemeService>().Apply(appearance);
         if (autoLaunch && tray?.IsAvailable == true)
         {
-            try { hidden = ShellPolicy.StartHidden(true, await services!.GetRequiredService<ISettingsStore>().LoadAsync(), true); }
-            catch (Exception ex) { Log.Warning(ex, "Preferência de inicialização minimizada não pôde ser lida; a janela será exibida"); }
+            if (stored is not null) hidden = ShellPolicy.StartHidden(true, stored, true);
+            else Log.Warning("Preferência de inicialização minimizada não pôde ser lida; a janela será exibida");
         }
         if (hidden) Log.Information("Iniciado minimizado na bandeja");
         else ShowMainWindow();

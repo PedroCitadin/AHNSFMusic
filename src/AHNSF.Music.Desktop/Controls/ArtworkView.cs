@@ -16,14 +16,19 @@ public sealed class ArtworkView : Border
     public static readonly StyledProperty<string?> CacheKeyProperty = AvaloniaProperty.Register<ArtworkView, string?>(nameof(CacheKey));
     public string? CacheKey { get => GetValue(CacheKeyProperty); set => SetValue(CacheKeyProperty, value); }
     private readonly Image image = new() { Stretch = Stretch.UniformToFill };
-    private readonly TextBlock placeholder = new() { Text = "♫", FontSize = 25, Foreground = new SolidColorBrush(Color.Parse("#75CDD2")), HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center };
+    private readonly TextBlock placeholder = new() { Text = "♫", FontSize = 22, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center };
     private CancellationTokenSource? loading;
     private Bitmap? bitmap;
     private bool attached;
+    // Default size as a default value (not a local value) so styles such as rowArt/heroArt can resize it.
+    static ArtworkView() { WidthProperty.OverrideDefaultValue<ArtworkView>(46); HeightProperty.OverrideDefaultValue<ArtworkView>(46); }
     public ArtworkView()
     {
-        Width = 46; Height = 46; CornerRadius = new CornerRadius(6); ClipToBounds = true;
-        Background = new SolidColorBrush(Color.Parse("#24414A"));
+        CornerRadius = new CornerRadius(6); ClipToBounds = true;
+        // Theme tokens (0.8.3): placeholder follows the active accent and theme.
+        this[!BackgroundProperty] = this.GetResourceObservable("AccentSubtleBrush").ToBinding();
+        placeholder[!TextBlock.ForegroundProperty] = placeholder.GetResourceObservable("AccentTextBrush").ToBinding();
+        SizeChanged += (_, args) => placeholder.FontSize = Math.Clamp(args.NewSize.Height * 0.42, 14, 72);
         var content = new Grid(); content.Children.Add(placeholder); content.Children.Add(image); Child = content;
     }
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)

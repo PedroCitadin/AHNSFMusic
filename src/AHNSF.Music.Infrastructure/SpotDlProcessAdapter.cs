@@ -25,16 +25,19 @@ public sealed class SpotDlProcessAdapter : IImportMetadataProvider
     private readonly SpotDlLaunch? simulated;
     private readonly TimeSpan perTrack;
     private readonly Serilog.ILogger? logger;
+    private readonly YouTubeCookieSetting? cookies;
     private SpotDlLaunch? verified;
     private string? verifiedStamp;
     private bool denoReady;
 
-    public SpotDlProcessAdapter(string installRoot, Serilog.ILogger? logger = null) : this(installRoot, null, null, logger) { }
+    public SpotDlProcessAdapter(string installRoot, Serilog.ILogger? logger = null, YouTubeCookieSetting? cookies = null)
+        : this(installRoot, null, null, logger, cookies: cookies) { }
     /// <summary>Test seam: <paramref name="launch"/> bypasses package verification and is never used by the application.</summary>
-    public SpotDlProcessAdapter(string installRoot, SpotDlLaunch? launch, TimeSpan? perTrackTimeout, Serilog.ILogger? logger = null, bool simulatedDeno = true)
+    public SpotDlProcessAdapter(string installRoot, SpotDlLaunch? launch, TimeSpan? perTrackTimeout, Serilog.ILogger? logger = null, bool simulatedDeno = true,
+        YouTubeCookieSetting? cookies = null)
     {
         root = Path.GetFullPath(installRoot); simulated = launch; perTrack = perTrackTimeout ?? TimeSpan.FromMinutes(3);
-        this.logger = logger; denoReady = launch is not null && simulatedDeno;
+        this.logger = logger; denoReady = launch is not null && simulatedDeno; this.cookies = cookies;
     }
     private string SpotDl => Path.Combine(root, "Tools", "spotdl", "spotdl.exe");
     private string FFmpeg => Path.Combine(root, "Tools", "ffmpeg", "ffmpeg.exe");
@@ -173,9 +176,14 @@ public sealed class SpotDlProcessAdapter : IImportMetadataProvider
             }
             var request = Path.Combine(work, "request.spotdl");
             await File.WriteAllTextAsync(request, entries.ToJsonString(), new UTF8Encoding(false), token).ConfigureAwait(false);
+            // Operator's own session file, only when configured; its path is passed as one argument and the file is never read here.
+            var cookieFile = cookies?.FilePath;
+            if (!string.IsNullOrWhiteSpace(cookieFile) && YouTubeCookieSetting.Inspect(cookieFile) is { State: not CookieFileState.Configured } bad)
+                throw new InvalidOperationException(bad.Message + " Corrija ou remova a configuração em Configurações → Downloads.");
+            var authentication = string.IsNullOrWhiteSpace(cookieFile) ? Array.Empty<string>() : ["--cookie-file", Path.GetFullPath(cookieFile)];
             var args = launch.PrefixArguments.Concat(["download", request, "--output", Path.Combine(output, "{list-position}.{output-ext}"),
-                "--format", "mp3", "--overwrite", "skip", "--lyrics", "--threads", "2", "--ffmpeg", launch.FFmpeg,
-                "--log-level", "DEBUG", "--simple-tui", "--print-errors"]).ToArray();
+                "--format", "mp3", "--overwrite", "skip", "--lyrics", "--threads", authentication.Length > 0 ? "1" : "2", "--ffmpeg", launch.FFmpeg,
+                "--log-level", "DEBUG", "--simple-tui", "--print-errors"]).Concat(authentication).ToArray();
             // DEBUG is required: spotDL 4.5.2 swallows yt-dlp messages (YTDLLogger) and re-raises "YT-DLP download error - url";
             // the real reason ("Sign in to confirm you're not a bot", Deno, unavailable) only appears in its debug line and traceback.
             var timeout = TimeSpan.FromTicks(Math.Min(ImportProcessRunner.MaximumTimeout.Ticks, perTrack.Ticks * (tracks.Count + 1L)));

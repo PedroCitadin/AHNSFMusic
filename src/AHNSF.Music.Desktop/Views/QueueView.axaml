@@ -1,16 +1,40 @@
-<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Class="AHNSF.Music.Desktop.Views.QueueView">
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="using:AHNSF.Music.Desktop.Controls" x:Class="AHNSF.Music.Desktop.Views.QueueView">
   <Grid RowDefinitions="Auto,Auto,*">
-    <Border Classes="card" Padding="14,12" Margin="0,0,0,12"><Grid>
-      <StackPanel Spacing="4"><TextBlock Text="{Binding QueueSummary}" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock Text="Alterar a fila não modifica as playlists salvas. A fila desta sessão não é restaurada ao reabrir." Classes="muted" FontSize="12" TextWrapping="Wrap"/></StackPanel>
-    </Grid></Border>
+    <!-- Now playing + queue context -->
+    <Border Classes="hero" Padding="18" Margin="0,0,0,14">
+      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="18">
+        <controls:ArtworkView CacheKey="{Binding CurrentTrack.ArtworkCacheKey}" Width="72" Height="72" CornerRadius="8"/>
+        <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+          <TextBlock Text="{Binding NowPlayingEyebrow}" Classes="eyebrow accent"/>
+          <TextBlock Text="{Binding CurrentTitle}" Classes="heading" FontSize="19" TextTrimming="CharacterEllipsis"/>
+          <TextBlock Text="{Binding CurrentArtist}" Classes="muted" TextTrimming="CharacterEllipsis"/>
+        </StackPanel>
+        <StackPanel Grid.Column="2" Spacing="6" VerticalAlignment="Center" HorizontalAlignment="Right">
+          <WrapPanel HorizontalAlignment="Right">
+            <Border Classes="badge accent" Margin="0,0,6,4" ToolTip.Tip="Origem da fila atual"><TextBlock Text="{Binding QueueOriginLabel}" MaxWidth="260" TextTrimming="CharacterEllipsis"/></Border>
+            <Border Classes="badge" Margin="0,0,0,4"><TextBlock Text="{Binding QueueCountLabel}"/></Border>
+          </WrapPanel>
+          <WrapPanel HorizontalAlignment="Right">
+            <Border Classes="badge" Margin="0,0,6,0"><TextBlock Text="{Binding QueuePositionLabel}"/></Border>
+            <Border Classes="badge" Classes.accent="{Binding ShuffleEnabled}" Margin="0,0,6,0"><TextBlock Text="{Binding ShuffleStateLabel}"/></Border>
+            <Border Classes="badge" Classes.accent="{Binding RepeatActive}"><TextBlock Text="{Binding RepeatStateLabel}"/></Border>
+          </WrapPanel>
+        </StackPanel>
+      </Grid>
+    </Border>
     <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
-      <TextBlock Text="{Binding QueueSelectionText}" Classes="muted" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-      <WrapPanel Grid.Column="1"><Button Content="Reproduzir selecionada" Command="{Binding PlayQueueItemCommand}" Classes="accent" Margin="0,0,8,0" ToolTip.Tip="Tocar a ocorrência selecionada (ou duplo clique)"/><Button Content="Remover selecionadas…" Classes="danger" Command="{Binding RequestRemoveQueueItemsCommand}" Margin="0,0,8,0" ToolTip.Tip="Pede confirmação; remover a atual interrompe a reprodução"/><Button Content="Limpar fila…" Classes="danger" Command="{Binding RequestClearQueueCommand}" ToolTip.Tip="Pede confirmação e para a reprodução"/></WrapPanel>
+      <StackPanel Spacing="1" VerticalAlignment="Center">
+        <TextBlock Text="{Binding QueueSelectionText}" Classes="caption accent" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+        <TextBlock Text="Alterar a fila não modifica as playlists salvas. A fila desta sessão não é restaurada ao reabrir." Classes="caption" FontSize="11" TextWrapping="Wrap"/>
+      </StackPanel>
+      <WrapPanel Grid.Column="1" Margin="12,0,0,0"><Button Content="Reproduzir selecionada" Command="{Binding PlayQueueItemCommand}" Classes="accent" Margin="0,0,8,0" ToolTip.Tip="Tocar a ocorrência selecionada (ou duplo clique)"/><Button Content="Remover selecionadas…" Classes="ghost danger" Command="{Binding RequestRemoveQueueItemsCommand}" Margin="0,0,4,0" ToolTip.Tip="Pede confirmação; remover a atual interrompe a reprodução"/><Button Content="Limpar fila…" Classes="ghost danger" Command="{Binding RequestClearQueueCommand}" ToolTip.Tip="Pede confirmação e para a reprodução"/></WrapPanel>
     </Grid>
-    <Border Grid.Row="2" Classes="list"><Grid>
-      <ListBox x:Name="QueueList" ItemsSource="{Binding QueueRows}" ItemTemplate="{StaticResource OccurrenceTemplate}" SelectionMode="Multiple" SelectedItems="{Binding SelectedQueueRows}" SelectedItem="{Binding SelectedQueueRow, Mode=TwoWay}" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Fila de reprodução"><ListBox.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel/></ItemsPanelTemplate></ListBox.ItemsPanel></ListBox>
-      <StackPanel IsVisible="{Binding ShowQueueEmpty}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10" Margin="20" MaxWidth="400">
-        <TextBlock Text="♫" FontSize="34" Foreground="{StaticResource MutedBrush}" HorizontalAlignment="Center"/>
+    <Border Grid.Row="2" Classes="list"><Grid RowDefinitions="Auto,Auto,*">
+      <Grid ColumnDefinitions="36,52,*,Auto,60" Margin="13,8,10,8"><TextBlock Text="#" Classes="eyebrow" HorizontalAlignment="Center"/><TextBlock Grid.Column="2" Text="PRÓXIMAS E JÁ TOCADAS NESTA SESSÃO" Classes="eyebrow"/><TextBlock Grid.Column="4" Text="DURAÇÃO" Classes="eyebrow" HorizontalAlignment="Right" Margin="0,0,6,0"/></Grid>
+      <Border Grid.Row="1" Classes="divider" Margin="8,0,8,4"/>
+      <ListBox Grid.Row="2" x:Name="QueueList" ItemsSource="{Binding QueueRows}" ItemTemplate="{StaticResource OccurrenceTemplate}" SelectionMode="Multiple" SelectedItems="{Binding SelectedQueueRows}" SelectedItem="{Binding SelectedQueueRow, Mode=TwoWay}" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Fila de reprodução"><ListBox.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel/></ItemsPanelTemplate></ListBox.ItemsPanel></ListBox>
+      <StackPanel Grid.Row="2" IsVisible="{Binding ShowQueueEmpty}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10" Margin="20" MaxWidth="400">
+        <Border Width="64" Height="64" CornerRadius="32" Background="{DynamicResource AccentSubtleBrush}" HorizontalAlignment="Center"><Path Classes="icon accentIcon" Data="{StaticResource QueueIcon}" Width="24" Height="24"/></Border>
         <TextBlock Text="Fila vazia. Adicione músicas pela Biblioteca ou reproduza uma playlist." Classes="muted" TextWrapping="Wrap" TextAlignment="Center"/>
         <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center"><Button Content="Abrir biblioteca" Command="{Binding NavigateCommand}" CommandParameter="Biblioteca"/><Button Content="Abrir playlists" Command="{Binding NavigateCommand}" CommandParameter="Playlists"/></StackPanel>
       </StackPanel>

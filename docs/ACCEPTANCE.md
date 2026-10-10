@@ -548,3 +548,53 @@ Terceira execução real do usuário (10 faixas únicas, pacote v2): log técnic
 Conclusão do ensaio: a cadeia aplicativo → spotDL → busca no YouTube Music funciona; o YouTube recusa a obtenção nesta rede/máquina com verificação anti-robô. Isso não é falha do aplicativo e não tem correção dentro do escopo (sem cookies, contas ou evasão).
 
 Esta correção só torna o motivo visível. Se o motivo for a verificação do YouTube (“not a bot”), o download continua falhando naquela rede: o aplicativo não usa cookies, contas nem mecanismos de evasão. Download real **não validado**.
+
+## Autenticação YouTube por cookies.txt (10/10/2026)
+
+Pedido do usuário após validar manualmente no PowerShell `spotdl download … --cookie-file …`. Escopo final, também definido pelo usuário: guardar só o caminho configurável e passá-lo como `--cookie-file`; o Claude não deveria ler, abrir, copiar ou manipular o arquivo real nem testar com a sessão real.
+
+Uma primeira versão (serviço que copiaria o cookies.txt para `%LOCALAPPDATA%\AHNSF Music\secrets` com ACL restrita e testaria a sessão com uma requisição HTTP ao YouTube) teve a gravação do arquivo-fonte **recusada pelo classificador de segurança do modo automático do Claude Code** (“Security Weaken”), não por permissão de ferramenta. Ela foi descartada; nada dela ficou no código.
+
+Implementado: `YouTubeCookieSetting` (Core, só caminho + checagem do cabeçalho), `AppSettings.YouTubeCookieFile`, argumento no `SpotDlProcessAdapter` (somente no `download`, `--threads 1`), Configurações → Downloads, atalho “Abrir configurações de downloads” na importação, nova tentativa apenas das falhas e mensagem pedida para `Sign in to confirm you're not a bot`.
+
+Testes (`YouTubeCookieTests`, só arquivos fictícios, pasta com espaços, spotDL simulado): arquivo inexistente, vazio, formato inválido, Netscape válido, configuração ausente, inclusão de `--cookie-file` como argumento único com o caminho exato, remoção, falha de autenticação em uma faixa sem interromper a outra, download com e sem cookies, arquivo de cookies não modificado pelo aplicativo. Suíte Release **336/336**; Build 0 erros/0 avisos. Pacote de teste: `.tools/ensaio 0.8.2 cookies` (nenhum arquivo de cookies dentro).
+
+Não executado pelo Claude: download real com a sessão do usuário (faixa `4YJUTdZ0Pgl0ZeNyHYXeLd`). **Teste manual pendente pelo usuário**: configurar o arquivo em Configurações → Downloads, importar a faixa/playlist e conferir o MP3 na pasta musical, a biblioteca e a playlist. Não marcar como validado antes disso.
+
+# Validação da Fase 0.8.3 — Redesign visual e temas (10/10/2026)
+
+## Preparação
+
+Lidos PROJECT_STATE, README, ACCEPTANCE, todas as Views, DesignSystem, Settings e MainViewModel. Working tree já continha a integração de cookies da 0.8.2 não commitada (13 arquivos modificados + 3 novos); o diff foi salvo à parte antes de editar e foi preservado (nenhum commit, reset ou descarte). Arquivos compartilhados com essa alteração e tocados nesta fase: `Contracts.cs` (um parâmetro `Appearance` acrescentado ao fim de `AppSettings`), `MainViewModel.cs` (uma linha `LoadAppearance()`), `App.axaml.cs` (registro do ThemeService e aplicação do tema antes de abrir a janela), `ImportView.axaml` e `SettingsView.axaml` (só layout; bindings e comandos de importação/cookies iguais). Lógica spotDL, cookies, NAudio, WASAPI, agendador e persistência do histórico não foram alterados. Baseline com `scripts/dev.ps1` e SDK local: **336/336**.
+
+## Testes
+
+`AppearanceTests` (26 casos): hex válido (5) e inválido (9); contraste de todos os presets e de 310 cores (extremos e 300 aleatórias com semente fixa) nos temas claro e escuro — texto sobre botão principal/hover/pressionado ≥ 4,5, botão principal sobre fundos ≥ 3, texto de destaque, principal (≥ 7) e secundário (≥ 4,5) sobre fundos, superfícies, seleção e realces; cores de status sobre superfícies e selos; cores derivadas e aviso de ajuste; alternância claro/escuro; seguir o Windows (só no modo Sistema, ausência de informação = escuro); persistência no Settings existente sem perder volume/cookies e restauração na próxima abertura; cor personalizada só salva quando válida; migração de JSON 0.8.2 sem `Appearance` e reparo de valores inválidos; aplicação em tempo de execução sem reiniciar e “Restaurar padrão”; densidade e animações reduzidas; não interferência no player (estado, carregamentos, volume, posição, faixa e fila iguais) e no agendador (modo Automático tocando, sem suspensão, sem nova carga, volume da regra mantido).
+
+Os testes de contraste encontraram dois defeitos reais na primeira versão da paleta (seleção com destaque branco no tema escuro e texto “sucesso” sobre seu selo no claro); a paleta passou a reduzir a tintura e ajustar tons de status até cumprir o mínimo.
+
+Build Debug e Release **0 erros / 0 avisos**; suíte Release **362/362** (336 anteriores + 26), executada duas vezes, a última após as correções visuais finais.
+
+## Validação visual no aplicativo real
+
+Executável Release aberto e conduzido por UI Automation (botões de navegação, itens de lista, toggles, campos) com capturas por `PrintWindow`, em 1366×728 (1366×768 menos a barra de tarefas), 1920×1040, 2560×1400 e 960×660 (janela compacta). Antes de qualquer edição foram capturadas as 8 telas nos 4 tamanhos. Verificado:
+
+- Tema escuro e claro, troca imediata sem reiniciar; cores Verde-água, Azul, Laranja e personalizada #FFFF00 (escurecida automaticamente para oliva no tema claro, com aviso); hex inválido `#12G` com campo em vermelho e mensagem, cor anterior mantida.
+- Densidade Compacta (linhas, botões e segmentos menores) e Restaurar padrão.
+- Modal de confirmação (Limpar fila → Cancelar) nos dois temas, com fundo bloqueado; foco de teclado (Tab) com anel arredondado na cor de destaque na navegação, botões redondos e no modal.
+- Seleção, alinhamento cabeçalho/colunas da Biblioteca, truncamento com reticências, rolagem das listas, linha do tempo da Programação, estados vazios, Importar sem ferramentas, Histórico com eventos.
+- Telas grandes: conteúdo limitado a 1560 px e centralizado. Janela compacta: barra lateral 196 px, ações da Biblioteca quebram linha, capa do Início reduzida, nome da saída de áudio oculto no player.
+
+Problemas encontrados e corrigidos durante a validação: glifo ♫ sem fallback na fonte Segoe UI Variable (voltou para Segoe UI); deslocamento de 3 px da linha selecionada; largura da barra lateral compacta ignorada por valor local; ações da Biblioteca cortadas a 960 px; tamanho das capas fixado por valor local no controle (agora valor padrão, sobrescrevível por estilo); adorno de foco retangular do Fluent; botões de navegação desabilitados com fundo cinza atrás do modal; segmentos apertados na densidade compacta; selo de modo duplicado no cabeçalho.
+
+As preferências alteradas durante o ensaio e os eventos de histórico gerados foram descartados: o `settings.db` do perfil foi copiado antes e restaurado byte a byte depois (hash conferido). Capturas antes/depois em `docs/capturas/0.8.3/`.
+
+## Limites e pendências visuais
+
+- Escalas de DPI 125/150 % e um monitor 2560×1440 físico não foram testados; 2560×1400 foi uma janela redimensionada em tela menor, renderizada pelo Windows.
+- Atalhos Ctrl+1…8 não foram reexercitados pela automação (já pendentes de homologação física desde a 0.8); a navegação foi feita pelos botões.
+- “Reduzir animações” não desliga a animação da barra de progresso indeterminada do Fluent.
+- Na janela compacta a barra lateral ainda pode mostrar barra de rolagem fina perto de 660 px de altura.
+- Não houve reprodução real durante as capturas (perfil QA, player parado); estados “tocando” foram verificados por testes, não por captura.
+- Leitor de tela (Narrador) não foi testado; nomes de automação existem nos botões, filtros, cores e listas.
+- Executar o `dotnet` do SDK local sem `DOTNET_CLI_HOME` (uma vez, fora do `dev.ps1`) gerou o certificado de desenvolvimento HTTPS do ASP.NET no perfil do usuário; não é usado pelo aplicativo.

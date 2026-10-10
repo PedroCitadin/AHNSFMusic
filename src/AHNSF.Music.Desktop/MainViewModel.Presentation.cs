@@ -30,7 +30,8 @@ public partial class MainViewModel
     };
     public string PlayerStateLabel => playback.State switch { PlayerState.Playing => "Reproduzindo", PlayerState.Paused => "Pausado", _ => "Parado" };
     public string PlayerStateIcon => playback.State switch { PlayerState.Playing => "▶", PlayerState.Paused => "Ⅱ", _ => "■" };
-    public string PlayerStateColor => playback.LastError is not null ? "#EE9D9D" : playback.State == PlayerState.Playing ? "#8FD3C5" : "#A5B2C2";
+    /// <summary>Semantic tone, resolved to the active theme brush by ToneBrushConverter.</summary>
+    public string PlayerStateColor => playback.LastError is not null ? "Error" : playback.State == PlayerState.Playing ? "AccentText" : "TextSecondary";
     public string ActiveOrigin => CurrentTrack is null ? "Nenhuma sessão em reprodução" : queue.Origin.Name;
     public string QueueOrigin => queue.Origin.Name;
     public string ModeLabel => presentedSchedule?.Mode == OperationMode.Automatic ? "Automático" : "Manual";
