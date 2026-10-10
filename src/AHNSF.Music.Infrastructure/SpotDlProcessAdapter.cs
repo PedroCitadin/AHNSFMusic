@@ -3,11 +3,13 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using AHNSF.Music.Core;
 
 namespace AHNSF.Music.Infrastructure;
 
-public sealed record ImportToolManifest(string SpotDlVersion, string SpotDlSha256, string FFmpegVersion, string FFmpegSha256);
+public sealed record ImportToolManifest(string SpotDlVersion, string SpotDlSha256, string FFmpegVersion, string FFmpegSha256,
+    string? DenoVersion = null, string? DenoSha256 = null);
 public sealed record ImportProcessResult(int ExitCode, string Stdout, string Stderr);
 /// <summary>How the helper is launched. Production resolves verified packaged paths; tests inject a simulated process.</summary>
 public sealed record SpotDlLaunch(string Executable, IReadOnlyList<string> PrefixArguments, string FFmpeg);
@@ -17,21 +19,28 @@ public sealed class SpotDlProcessAdapter : IImportMetadataProvider
 {
     public const string SupportedSpotDlVersion = "4.5.2";
     public const string SupportedFFmpegVersion = "9.0.2";
+    public const string SupportedDenoVersion = "2.9.7";
     public static readonly TimeSpan PreviewTimeout = TimeSpan.FromMinutes(20); // Real run: 49 tracks took ~2 min with SpotipyFree.
     private readonly string root;
     private readonly SpotDlLaunch? simulated;
     private readonly TimeSpan perTrack;
+    private readonly Serilog.ILogger? logger;
     private SpotDlLaunch? verified;
     private string? verifiedStamp;
+    private bool denoReady;
 
-    public SpotDlProcessAdapter(string installRoot) : this(installRoot, null, null) { }
+    public SpotDlProcessAdapter(string installRoot, Serilog.ILogger? logger = null) : this(installRoot, null, null, logger) { }
     /// <summary>Test seam: <paramref name="launch"/> bypasses package verification and is never used by the application.</summary>
-    public SpotDlProcessAdapter(string installRoot, SpotDlLaunch? launch, TimeSpan? perTrackTimeout)
-    { root = Path.GetFullPath(installRoot); simulated = launch; perTrack = perTrackTimeout ?? TimeSpan.FromMinutes(3); }
+    public SpotDlProcessAdapter(string installRoot, SpotDlLaunch? launch, TimeSpan? perTrackTimeout, Serilog.ILogger? logger = null, bool simulatedDeno = true)
+    {
+        root = Path.GetFullPath(installRoot); simulated = launch; perTrack = perTrackTimeout ?? TimeSpan.FromMinutes(3);
+        this.logger = logger; denoReady = launch is not null && simulatedDeno;
+    }
     private string SpotDl => Path.Combine(root, "Tools", "spotdl", "spotdl.exe");
     private string FFmpeg => Path.Combine(root, "Tools", "ffmpeg", "ffmpeg.exe");
     private string Manifest => Path.Combine(root, "Tools", "manifest.json");
-    private string Stamp() => string.Join('|', new[] { SpotDl, FFmpeg, Manifest }.Select(p => new FileInfo(p))
+    private string Deno => Path.Combine(root, "Tools", "deno", "deno.exe");
+    private string Stamp() => string.Join('|', new[] { SpotDl, FFmpeg, Manifest, Deno }.Select(p => new FileInfo(p))
         .Select(f => f.Exists ? $"{f.Length}:{f.LastWriteTimeUtc.Ticks}" : "-"));
 
     public async Task<ImportToolStatus> DiagnoseAsync(CancellationToken token = default)
@@ -48,6 +57,10 @@ public sealed class SpotDlProcessAdapter : IImportMetadataProvider
             if (!await MatchesAsync(SpotDl, manifest.SpotDlSha256, token).ConfigureAwait(false) ||
                 !await MatchesAsync(FFmpeg, manifest.FFmpegSha256, token).ConfigureAwait(false))
                 return new(false, "Integridade dos executáveis não confirmada (SHA-256).");
+            // Deno is optional, but Tools\deno is on the helper PATH: a present binary must be the pinned, hashed one.
+            var hasDeno = File.Exists(Deno);
+            if (hasDeno && (manifest.DenoVersion != SupportedDenoVersion || !await MatchesAsync(Deno, manifest.DenoSha256 ?? "", token).ConfigureAwait(false)))
+                return new(false, "Deno do pacote com versão ou integridade (SHA-256) não confirmada.");
             var work = CreateWork();
             try
             {
@@ -57,10 +70,19 @@ public sealed class SpotDlProcessAdapter : IImportMetadataProvider
                 if (version.ExitCode != 0 || !(version.Stdout + version.Stderr).Contains(SupportedSpotDlVersion, StringComparison.Ordinal) ||
                     ffmpeg.ExitCode != 0 || !ffmpeg.Stdout.Contains(SupportedFFmpegVersion, StringComparison.Ordinal))
                     return new(false, "Executável ou versão interna incompatível.");
+                if (hasDeno)
+                {
+                    var deno = await ImportProcessRunner.RunAsync(Deno, ["--version"], work, TimeSpan.FromSeconds(30), null, token, env).ConfigureAwait(false);
+                    if (deno.ExitCode != 0 || !deno.Stdout.Contains("deno " + SupportedDenoVersion, StringComparison.Ordinal))
+                        return new(false, "Deno do pacote incompatível.");
+                }
             }
             finally { DeleteWork(work); }
-            verified = new(SpotDl, [], FFmpeg); verifiedStamp = Stamp();
-            return new(true, $"Ferramentas verificadas: spotDL {SupportedSpotDlVersion} e FFmpeg {SupportedFFmpegVersion}.", SupportedSpotDlVersion, SupportedFFmpegVersion);
+            verified = new(SpotDl, [], FFmpeg); verifiedStamp = Stamp(); denoReady = hasDeno;
+            return new(true, hasDeno
+                ? $"Ferramentas verificadas: spotDL {SupportedSpotDlVersion}, FFmpeg {SupportedFFmpegVersion} e Deno {SupportedDenoVersion}."
+                : $"Ferramentas verificadas: spotDL {SupportedSpotDlVersion} e FFmpeg {SupportedFFmpegVersion}. Deno ausente: alguns downloads do YouTube podem falhar.",
+                SupportedSpotDlVersion, SupportedFFmpegVersion);
         }
         catch (OperationCanceledException) { throw; }
         catch { return new(false, "Falha ao verificar as ferramentas internas. Consulte os logs técnicos."); }
@@ -129,7 +151,7 @@ public sealed class SpotDlProcessAdapter : IImportMetadataProvider
     }
     private static string? Text(JsonElement entry, string key) => entry.TryGetProperty(key, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
 
-    public async Task<IReadOnlyDictionary<Guid, string>> DownloadAsync(IReadOnlyList<ImportTrack> tracks, string staging,
+    public async Task<ImportDownloadResult> DownloadAsync(IReadOnlyList<ImportTrack> tracks, string staging,
         IProgress<ImportProgress>? progress, CancellationToken token)
     {
         if (tracks.Count is 0 or > 5000 || tracks.Any(t => t.SourceData is null)) throw new ArgumentException("Faixas inválidas para obtenção.");
@@ -153,14 +175,15 @@ public sealed class SpotDlProcessAdapter : IImportMetadataProvider
             await File.WriteAllTextAsync(request, entries.ToJsonString(), new UTF8Encoding(false), token).ConfigureAwait(false);
             var args = launch.PrefixArguments.Concat(["download", request, "--output", Path.Combine(output, "{list-position}.{output-ext}"),
                 "--format", "mp3", "--overwrite", "skip", "--lyrics", "--threads", "2", "--ffmpeg", launch.FFmpeg,
-                "--log-level", "ERROR", "--simple-tui", "--print-errors"]).ToArray();
+                "--log-level", "WARNING", "--simple-tui", "--print-errors"]).ToArray();
             var timeout = TimeSpan.FromTicks(Math.Min(ImportProcessRunner.MaximumTimeout.Ticks, perTrack.Ticks * (tracks.Count + 1L)));
             using var poll = CancellationTokenSource.CreateLinkedTokenSource(token);
             var monitor = ReportFilesAsync(output, tracks.Count, progress, poll.Token);
             // Cancellation/timeout kill the process tree but still return what finished; the caller verifies every file.
-            try { await ImportProcessRunner.RunAsync(launch.Executable, args, work, timeout, null, token, Environment(work)).ConfigureAwait(false); }
-            catch (OperationCanceledException) when (token.IsCancellationRequested) { }
-            catch (TimeoutException) { }
+            ImportProcessResult? run = null; var stopped = ImportFailureKind.Unknown;
+            try { run = await ImportProcessRunner.RunAsync(launch.Executable, args, work, timeout, null, token, Environment(work)).ConfigureAwait(false); }
+            catch (OperationCanceledException) when (token.IsCancellationRequested) { stopped = ImportFailureKind.Cancelled; }
+            catch (TimeoutException) { stopped = ImportFailureKind.Timeout; }
             finally { poll.Cancel(); await monitor.ConfigureAwait(false); }
             // Exit code is not trusted either way: only files that map to a requested index are returned.
             var files = new Dictionary<Guid, string>();
@@ -169,7 +192,15 @@ public sealed class SpotDlProcessAdapter : IImportMetadataProvider
                     && new FileInfo(file).Length >= 1024)
                     files[tracks[index - 1].Id] = file;
             progress?.Report(new(files.Count, tracks.Count, $"{files.Count} de {tracks.Count} música(s) recebida(s); verificando arquivos…"));
-            return files;
+            var missing = tracks.Where(t => !files.ContainsKey(t.Id)).ToArray();
+            var failures = stopped != ImportFailureKind.Unknown
+                ? missing.ToDictionary(t => t.Id, _ => stopped)
+                : SpotDlOutputClassifier.Classify(run is null ? "" : run.Stdout + "\n" + run.Stderr, missing, denoReady);
+            if (missing.Length > 0 && run is not null)
+                logger?.Warning("spotDL não obteve {Missing} de {Total} faixa(s) ({Kinds}). Saída sanitizada:\n{Output}", missing.Length, tracks.Count,
+                    string.Join(", ", failures.Values.GroupBy(k => k).Select(g => $"{g.Key}={g.Count()}")),
+                    SpotDlOutputClassifier.Sanitize(run.Stdout + "\n" + run.Stderr, [staging, work, root]));
+            return new(files, failures);
         }
         finally { DeleteWork(work); }
     }
@@ -214,7 +245,7 @@ public sealed class SpotDlProcessAdapter : IImportMetadataProvider
             // Only packaged helpers and Windows itself are reachable: no global Python, FFmpeg or Deno.
             ["PATH"] = string.Join(';', new[] { Path.GetDirectoryName(FFmpeg)!, Path.Combine(root, "Tools", "deno"), system,
                 System.Environment.GetFolderPath(System.Environment.SpecialFolder.Windows) }),
-            ["PYTHONHOME"] = null, ["PYTHONPATH"] = null, ["PYTHONSTARTUP"] = null, ["PYTHONIOENCODING"] = "utf-8", ["PYTHONUTF8"] = "1",
+            ["PYTHONHOME"] = null, ["PYTHONPATH"] = null, ["PYTHONSTARTUP"] = null, ["PYTHONIOENCODING"] = "utf-8", ["PYTHONUTF8"] = "1", ["COLUMNS"] = "4000", // Wide console: rich must not wrap error lines we classify.
             ["SPOTIPY_CLIENT_ID"] = null, ["SPOTIPY_CLIENT_SECRET"] = null, ["SPOTIPY_REDIRECT_URI"] = null,
             ["HTTP_PROXY"] = null, ["HTTPS_PROXY"] = null,
         };
@@ -240,12 +271,15 @@ public static class ImportProcessRunner
         process.StandardInput.Close(); // A helper waiting for console input gets EOF instead of hanging.
         using var timeoutSource = new CancellationTokenSource(timeout);
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(token, timeoutSource.Token);
-        var stdout = new StringBuilder(); var stderr = new StringBuilder();
-        async Task CaptureAsync(StreamReader stream, StringBuilder target)
+        // Keep the newest 256 KiB per stream: spotDL prints its error summary at the very end.
+        var stdout = new Queue<string>(); var stderr = new Queue<string>();
+        async Task CaptureAsync(StreamReader stream, Queue<string> target)
         {
+            long size = 0;
             while (await stream.ReadLineAsync().ConfigureAwait(false) is { } line)
             {
-                lock (target) if (target.Length < 65536) target.AppendLine(line[..Math.Min(line.Length, 4096)]);
+                var kept = line[..Math.Min(line.Length, 4096)];
+                lock (target) { target.Enqueue(kept); size += kept.Length; while (size > 262144 && target.Count > 1) size -= target.Dequeue().Length; }
                 // spotDL console progress is unstable. Display only a generic heartbeat, never parse it as a contract.
                 progress?.Report(new(0, 0, "Ferramenta auxiliar em execução…"));
             }
@@ -256,7 +290,7 @@ public static class ImportProcessRunner
         {
             await process.WaitForExitAsync(linked.Token).ConfigureAwait(false);
             await Task.WhenAll(outTask, errTask).ConfigureAwait(false);
-            return new(process.ExitCode, stdout.ToString(), stderr.ToString());
+            return new(process.ExitCode, string.Join('\n', stdout), string.Join('\n', stderr));
         }
         catch (OperationCanceledException)
         {
@@ -266,5 +300,77 @@ public static class ImportProcessRunner
             if (token.IsCancellationRequested) throw;
             throw new TimeoutException("Tempo limite da ferramenta auxiliar excedido.");
         }
+    }
+}
+
+/// <summary>
+/// Maps spotDL/yt-dlp console text to a failure kind per track. Text is diagnostic only: a pattern that is not
+/// recognised degrades to Unknown, never to success. spotDL 4.5.2 ends with "--print-errors" lines
+/// "{spotify url} - {Exception}: {message}"; yt-dlp writes its own "ERROR: [youtube] {id}: ..." lines.
+/// </summary>
+public static class SpotDlOutputClassifier
+{
+    private static readonly Regex SongError = new(@"(?<song>https://open\.spotify\.com/track/[A-Za-z0-9]+)\s+-\s+(?<type>[A-Za-z]+(?:Error|Exception))\s*:\s*(?<message>.*)", RegexOptions.CultureInvariant);
+    private static readonly Regex VideoId = new(@"(?:[?&]v=|youtu\.be/|/shorts/)(?<id>[A-Za-z0-9_-]{11})", RegexOptions.CultureInvariant);
+
+    public static IReadOnlyDictionary<Guid, ImportFailureKind> Classify(string output, IReadOnlyList<ImportTrack> missing, bool denoAvailable)
+    {
+        var lines = output.Replace("\r", "").Split('\n');
+        var errors = new Dictionary<string, (string Type, string Message)>(StringComparer.OrdinalIgnoreCase);
+        foreach (var line in lines)
+            if (SongError.Match(line) is { Success: true } m) errors[m.Groups["song"].Value] = (m.Groups["type"].Value, m.Groups["message"].Value);
+        var global = Global(lines, denoAvailable);
+        var result = new Dictionary<Guid, ImportFailureKind>();
+        foreach (var track in missing)
+        {
+            if (SongUrl(track) is not { } url || !errors.TryGetValue(url, out var error)) { result[track.Id] = global ?? ImportFailureKind.Unknown; continue; }
+            // yt-dlp's reason is on its own line, keyed by the video id spotDL quotes in its error.
+            var detail = VideoId.Match(error.Message) is { Success: true } v
+                ? string.Join("\n", lines.Where(l => l.Contains(v.Groups["id"].Value, StringComparison.Ordinal) && l.Contains("ERROR", StringComparison.Ordinal)))
+                : "";
+            result[track.Id] = error.Type switch
+            {
+                "LookupError" => ImportFailureKind.NotFound,
+                "FFmpegError" => ImportFailureKind.Conversion,
+                _ => FromText(error.Message + "\n" + detail, denoAvailable)
+                    ?? (error.Type == "AudioProviderError" && detail.Length == 0 ? global : null) ?? ImportFailureKind.Unknown,
+            };
+        }
+        return result;
+    }
+    private static ImportFailureKind? Global(IEnumerable<string> lines, bool deno) =>
+        FromText(string.Join("\n", lines.Where(l => l.Contains("ERROR", StringComparison.Ordinal) || l.Contains("Deno", StringComparison.Ordinal))), deno);
+    private static ImportFailureKind? FromText(string text, bool deno)
+    {
+        bool Has(params string[] parts) => parts.Any(p => text.Contains(p, StringComparison.OrdinalIgnoreCase));
+        if (Has("not a bot", "Sign in to confirm", "confirm your age", "HTTP Error 403", "HTTP Error 429", "Too Many Requests")) return ImportFailureKind.SourceVerification;
+        if (!deno && Has("require Deno", "JavaScript runtime", "js runtime", "n challenge", "nsig", "Signature extraction failed")) return ImportFailureKind.RuntimeMissing;
+        if (Has("Video unavailable", "Private video", "is not available", "has been removed", "No results found", "Could not find a match")) return ImportFailureKind.NotFound;
+        if (Has("ffmpeg", "Conversion failed")) return ImportFailureKind.Conversion;
+        if (Has("getaddrinfo", "Failed to resolve", "Temporary failure in name resolution", "Network is unreachable", "Connection reset",
+            "Connection refused", "timed out", "ConnectionError", "URLError")) return ImportFailureKind.Network;
+        return null;
+    }
+    private static string? SongUrl(ImportTrack track)
+    {
+        try { return JsonNode.Parse(track.SourceData ?? "")?["url"]?.GetValue<string>()?.Split('?')[0]; }
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException or FormatException) { return null; }
+    }
+
+    /// <summary>Last lines for the technical log: no local paths, query strings (except the YouTube video id) or tokens.</summary>
+    public static string Sanitize(string output, IEnumerable<string> paths)
+    {
+        var text = output;
+        foreach (var path in paths.Where(p => !string.IsNullOrEmpty(p)).OrderByDescending(p => p.Length)) text = text.Replace(path, "<pasta>", StringComparison.OrdinalIgnoreCase);
+        var profile = System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile);
+        if (profile.Length > 0) text = text.Replace(profile, "<perfil>", StringComparison.OrdinalIgnoreCase);
+        text = Regex.Replace(text, @"(https?://[^\s?#""']+)\?([^\s#""']*)", m =>
+        {
+            var id = Regex.Match(m.Groups[2].Value, @"(?:^|&)v=([A-Za-z0-9_-]{11})");
+            return m.Groups[1].Value + (id.Success ? "?v=" + id.Groups[1].Value : "");
+        });
+        text = Regex.Replace(text, @"(?i)\b(token|cookies?|authorization|secret|password|api[_-]?key)(\s*[=:]\s*)\S+", "$1$2<removido>");
+        var lines = text.Replace("\r", "").Split('\n').Where(l => l.Trim().Length > 0).TakeLast(60).Select(l => l.Length > 400 ? l[..400] + "…" : l);
+        return string.Join("\n", lines);
     }
 }

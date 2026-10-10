@@ -524,3 +524,17 @@ Para completar o ensaio: usar uma playlist cujo áudio a AHNSF tenha direito de 
 - Progresso conta arquivos `.mp3` no staging; uma faixa em conversão pode ser contada antes de terminar. O resumo final usa apenas arquivos verificados.
 - Deno não é empacotado; sem ele o yt-dlp pode falhar em alguns vídeos.
 - Instalador, inclusão de `Tools/`, código-fonte/obrigações GPLv3 do FFmpeg e validação em máquina limpa sem administrador continuam pendentes.
+
+## Correção 0.8.2 — classificação de falhas e Deno (10/10/2026)
+
+Motivo: no teste real do usuário com spotDL 4.5.2, a consulta ao Spotify e a correspondência no YouTube Music funcionaram, mas o yt-dlp respondeu `ERROR: [youtube] …: Sign in to confirm you're not a bot.` e o spotDL avisou `Some YouTube downloads require Deno.` A interface só mostrava “Não foi possível obter o áudio”.
+
+Investigação no código da tag v4.5.2: falhas de faixa entram em `Downloader.errors` como `"{song.url} - {Exceção}: {mensagem}"` e são impressas no fim com `--print-errors`; `AudioProviderError` só cita a URL do YouTube (`YT-DLP download error - …`), e o motivo real é a linha `ERROR: [youtube] <id>: …` do próprio yt-dlp. O aviso do Deno é `WARNING` (antes oculto por `--log-level ERROR`). Deno é procurado com `shutil.which("deno")`, portanto `Tools\deno` no PATH restrito do processo basta.
+
+Implementado: `SpotDlOutputClassifier` (Infrastructure) e `ImportFailureKind`/`ImportFailures` (Core); motivo por faixa em `ImportItemResult.Failure`, resumo `FailureBreakdown` na tela e no Histórico; log técnico sanitizado; log WARNING, `COLUMNS=4000`, captura dos últimos 256 KiB; Deno opcional verificado (manifesto `DenoVersion`/`DenoSha256`, `deno --version`); `prepare-import-tools.ps1 -DenoArchive`. Nenhum cookie, conta, token de prova, proxy ou contorno do bloqueio foi adicionado; a mensagem orienta a tentar mais tarde ou usar outra fonte autorizada.
+
+Testes novos (PlaylistDownloadTests): `ClassifierSeparatesVerificationRuntimeNotFoundConversionAndNetwork` (saída real reproduzida: verificação, Deno, sem correspondência, FFmpeg, rede, texto desconhecido, e Deno presente não é culpado), `SanitizedLogDropsPathsQueryStringsAndSecretsButKeepsVideoId`, `YouTubeBotCheckIsReportedPerTrackInSummaryAndHistoryWithoutCookiesOrUrls` (processo simulado com as mensagens reais; nenhum `--cookies` passado; histórico sem URL), `DenoInPackageMustMatchPinnedHashBeforeAnyProcessRuns`. Suíte Release: **322/322**, Build 0 erros/0 avisos.
+
+Ensaio: `deno-x86_64-pc-windows-msvc.zip` 2.9.7 baixado do release oficial, SHA-256 igual ao digest publicado; `ensaio 0.8.2 deno` montado pelo script com spotDL, FFmpeg e Deno (hash do `deno.exe` derivado do zip verificado: `E020F3E232BD16E33768DEE528E5983349C962952051CED0A5D58AD42F5D9B33`). Diagnóstico do adaptador: pronto em 4,4 s, “spotDL 4.5.2, FFmpeg 9.0.2 e Deno 2.9.7”; no ambiente isolado `where deno` resolve `Tools\deno\deno.exe`.
+
+**Download real continua NÃO validado.** Não foi fornecida fonte de áudio com obtenção autorizada, e o Deno não resolve o bloqueio `not a bot`, que depende do YouTube/rede. Itens 4–8 do ensaio permanecem pendentes.

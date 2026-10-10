@@ -79,20 +79,24 @@ public sealed class PlaylistImportService(IImportMetadataProvider metadata, ILib
         var cancelled = false;
         try
         {
-            IReadOnlyDictionary<Guid, string> obtained = new Dictionary<Guid, string>();
+            var download = new ImportDownloadResult(new Dictionary<Guid, string>(), new Dictionary<Guid, ImportFailureKind>());
             var wanted = ordered.Where(t => t.Downloadable).GroupBy(t => t.SourceId ?? t.Id.ToString("N")).Select(g => g.First()).ToArray();
             if (wanted.Length > 0)
             {
                 staging = Path.Combine(Path.GetTempPath(), "AHNSF Music", "Import", Guid.NewGuid().ToString("N"));
                 progress?.Report(new(0, wanted.Length, $"Baixando: 0 de {wanted.Length} música(s)…"));
-                obtained = await metadata.DownloadAsync(wanted, staging, progress, token).ConfigureAwait(false);
+                download = await metadata.DownloadAsync(wanted, staging, progress, token).ConfigureAwait(false);
                 cancelled = token.IsCancellationRequested;
             }
             var work = cancelled ? CancellationToken.None : token;
+            // Repeated entries share the reason of the one occurrence that was requested.
+            var bySource = wanted.Where(t => download.Failures.ContainsKey(t.Id)).ToDictionary(t => t.SourceId ?? t.Id.ToString("N"), t => download.Failures[t.Id]);
+            ImportFailureKind Reason(ImportTrack t) => download.Failures.TryGetValue(t.Id, out var k) ? k
+                : bySource.TryGetValue(t.SourceId ?? t.Id.ToString("N"), out k) ? k : cancelled ? ImportFailureKind.Cancelled : ImportFailureKind.Unknown;
             foreach (var item in ordered)
             {
                 work.ThrowIfCancellationRequested(); count++;
-                var source = item.LocalPath ?? (obtained.TryGetValue(item.Id, out var file) ? file : null);
+                var source = item.LocalPath ?? (download.Files.TryGetValue(item.Id, out var file) ? file : null);
                 if (item.ExistingTrackId is { } known) rows.Add(new(item.Id, item.Title, known, "Reutilizada"));
                 else if (item.SourceId is { } hash && copiedHashes.TryGetValue(hash, out var first))
                 { repeated[item.Id] = first; rows.Add(new(item.Id, item.Title, null, "Aguardando duplicata")); }
@@ -105,9 +109,13 @@ public sealed class PlaylistImportService(IImportMetadataProvider metadata, ILib
                         pending.Add((item.Id, target, item.Title)); rows.Add(new(item.Id, item.Title, null, "Copiada"));
                         if (item.SourceId is { } copiedHash) copiedHashes[copiedHash] = item.Id;
                     }
-                    catch (Exception ex) when (ex is not OperationCanceledException) { rows.Add(new(item.Id, item.Title, null, "Indisponível", SafeError(ex))); }
-                else rows.Add(new(item.Id, item.Title, null, "Indisponível", item.Issue ?? (!item.Downloadable ? "Fonte de áudio autorizada não fornecida."
-                    : cancelled ? "Download cancelado." : "Não foi possível obter o áudio desta faixa.")));
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        rows.Add(new(item.Id, item.Title, null, "Indisponível", SafeError(ex),
+                            item.LocalPath is null ? ImportFailureKind.InvalidFile : null));
+                    }
+                else if (item.Downloadable) { var reason = Reason(item); rows.Add(new(item.Id, item.Title, null, "Indisponível", ImportFailures.Describe(reason), reason)); }
+                else rows.Add(new(item.Id, item.Title, null, "Indisponível", item.Issue ?? "Fonte de áudio autorizada não fornecida."));
                 progress?.Report(new(count, ordered.Length, $"{count} de {ordered.Length} faixas organizadas."));
             }
             if (pending.Count > 0)
@@ -177,7 +185,8 @@ public sealed class PlaylistImportService(IImportMetadataProvider metadata, ILib
     }
     private static ImportResult Result(Guid? playlist, IReadOnlyList<ImportItemResult> rows, bool cancelled) =>
         new(playlist, rows.Count(r => r.Status == "Importada"), rows.Count(r => r.Status == "Reutilizada"), rows.Count(r => r.Status == "Indisponível"), cancelled, rows.ToArray());
-    private static string Summary(ImportResult result) => $"Importação: {result.Imported} arquivo(s), {result.Duplicates} reutilizado(s), {result.Unavailable} indisponível(is).";
+    private static string Summary(ImportResult result) => $"Importação: {result.Imported} arquivo(s), {result.Duplicates} reutilizado(s), {result.Unavailable} indisponível(is)."
+        + (result.FailureBreakdown.Length > 0 ? $" Motivos: {result.FailureBreakdown}." : "");
     private void Observe(OperationalEventType type, string description, OperationalEventSeverity severity = OperationalEventSeverity.Information, Guid? playlist = null)
     { try { history?.Record(type, "Importação", description, severity, OperationalActionOrigin.Manual, playlistId: playlist); } catch { /* Observability cannot affect import or playback. */ } }
     private static string Limit(string text) => string.IsNullOrWhiteSpace(text) ? "Sem título" : text.Trim()[..Math.Min(text.Trim().Length, 200)];

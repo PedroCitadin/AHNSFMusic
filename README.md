@@ -243,6 +243,21 @@ O aplicativo controla o [spotDL](https://github.com/spotDL/spotify-downloader) c
 - **Isolamento:** caminho absoluto, `ArgumentList` (sem shell), stdin fechado, `USERPROFILE`/`TEMP`/`APPDATA` apontando para uma pasta temporária própria (`%TEMP%\AHNSF Music\Import\<guid>`, removida ao final), `PATH` restrito a `Tools\ffmpeg`, `Tools\deno` e Windows. Python global, FFmpeg global, pip e downloads automáticos de dependências não são usados. Cancelamento/timeout encerram a árvore de processos. Timeout: 3 minutos por faixa (+1), máximo 8 horas.
 - **Integridade:** antes do primeiro uso (e sempre que os arquivos mudam) o manifesto, os SHA-256 e `--version`/`-version` são conferidos.
 
+### Quando uma música não é obtida
+
+Cada faixa não obtida mostra o motivo no resumo, e o Histórico registra a contagem por motivo:
+
+| Motivo exibido | Origem típica | O que fazer |
+|---|---|---|
+| A fonte (YouTube) pediu verificação de acesso (“confirme que não é um robô”) | yt-dlp: `Sign in to confirm you're not a bot`, HTTP 403/429 | Bloqueio do YouTube por acesso/rede. O aplicativo não usa contas, cookies nem mecanismos de evasão; tente mais tarde, em outra rede ou use outra fonte autorizada. |
+| A fonte exigiu o runtime Deno | aviso `Some YouTube downloads require Deno`, falha de *n challenge* | Incluir `Tools/deno` verificado no pacote. |
+| Nenhuma correspondência / indisponível | `LookupError`, vídeo indisponível ou privado | Faixa sem fonte; não há nova tentativa automática. |
+| O FFmpeg não conseguiu converter | `FFmpegError` | Verificar o pacote/FFmpeg e os logs. |
+| Falha de conexão | DNS, conexão recusada, tempo esgotado | Verificar a internet e repetir. |
+| Arquivo obtido incompleto ou inválido | verificação local (tag, duração, tamanho) | Repetir; o arquivo não entra na biblioteca. |
+
+A saída do spotDL/yt-dlp (últimas linhas, sem caminhos locais, parâmetros de URL, tokens ou cookies) vai para o log técnico em `%LOCALAPPDATA%\AHNSF Music\logs`. Texto não reconhecido vira “erro não identificado”, nunca sucesso.
+
 Limites: playlists do YouTube não são aceitas (o spotDL só aceita pares YouTube Music|Spotify); o spotDL pode escolher uma gravação diferente da original; o progresso conta arquivos recebidos no staging; sem Deno alguns downloads do yt-dlp podem falhar. Requer internet durante a importação; a reprodução continua offline.
 
 ### Ferramentas distribuídas
@@ -252,8 +267,9 @@ Layout no pacote, ao lado de `AHNSF.Music.Desktop.exe`: `Tools/manifest.json`, `
 | Ferramenta | Versão | Artefato e origem | SHA-256 publicado | Licença |
 |---|---|---|---|---|
 | spotDL | 4.5.2 | `spotdl-4.5.2-win32.exe` (45.970.977 bytes), [release oficial](https://github.com/spotDL/spotify-downloader/releases/tag/v4.5.2); executável PyInstaller com Python 3.13 e yt-dlp embutidos | `4490ae3b38c4321173e17975a9990a130cf9a9aea8132ee2978afecefbeeb477` (digest do GitHub) | MIT (dependências embutidas com licenças próprias) |
+| Deno (opcional) | 2.9.7 | `deno-x86_64-pc-windows-msvc.zip` (42.630.221 bytes), [release oficial](https://github.com/denoland/deno/releases/tag/v2.9.7); runtime JavaScript usado pelo yt-dlp | `a0c3101b4158d1dfb7d6a78a7bf0f3de80c96bb423c152beec8beb22786f2238` (digest do zip no GitHub) | MIT |
 | FFmpeg | 9.0.2 | `ffmpeg-9.0.2-essentials_build.zip` (114.768.076 bytes), [GyanD/codexffmpeg](https://github.com/GyanD/codexffmpeg/releases/tag/9.0.2) | `60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba` (digest do zip no GitHub) | GPLv3 (build “essentials” com bibliotecas GPL) |
 
-`scripts/prepare-import-tools.ps1` recebe a publicação nova, `spotdl.exe` com seu SHA-256 publicado e licença, e o FFmpeg como executável+hash ou como **zip + hash publicado do zip** (`-FFmpegArchive`/`-FFmpegArchiveSha256`); nesse caso o hash do `ffmpeg.exe` é derivado somente do pacote verificado. O script confere versões, copia sem sobrescrever e preenche o manifesto; não baixa nada nem exige administrador. O manifesto do repositório mantém SHA-256 vazio, o que bloqueia a execução em compilações de desenvolvimento sem pacote verificado.
+`scripts/prepare-import-tools.ps1` recebe a publicação nova, `spotdl.exe` com seu SHA-256 publicado e licença, e o FFmpeg como executável+hash ou como **zip + hash publicado do zip** (`-FFmpegArchive`/`-FFmpegArchiveSha256`); nesse caso o hash do `ffmpeg.exe` é derivado somente do pacote verificado. O Deno opcional entra da mesma forma (`-DenoArchive`, `-DenoArchiveSha256`, `-DenoLicense`). Se `Tools/deno/deno.exe` existir, versão e SHA-256 do manifesto são obrigatórios; sem Deno o importador funciona e avisa que alguns downloads do YouTube podem falhar. O script confere versões, copia sem sobrescrever e preenche o manifesto; não baixa nada nem exige administrador. O manifesto do repositório mantém SHA-256 vazio, o que bloqueia a execução em compilações de desenvolvimento sem pacote verificado.
 
 Pendências para o instalador: incluir `Tools/` e licenças, distribuir/oferecer o código-fonte correspondente do FFmpeg (GPLv3), revisar licenças das dependências empacotadas pelo spotDL, decidir sobre Deno, validar em máquina limpa sem Python/PATH/administrador e em pasta com espaços. O executável PyInstaller extrai arquivos em `%TEMP%` a cada execução (alguns segundos na primeira chamada); antivírus corporativos podem precisar de liberação.

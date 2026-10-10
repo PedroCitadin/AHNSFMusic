@@ -112,7 +112,10 @@ public partial class MainViewModel
             var result = await importService.ImportAsync(importPreview, selected, settings.MusicDirectory ?? "", ImportPlaylistName, progress, importCancellation.Token);
             ImportResults = result.Items;
             ImportMessage = result.Cancelled ? $"Cancelado. {result.Imported} música(s) concluída(s) foram preservadas na pasta musical, sem playlist." :
-                result.Unavailable > 0 ? $"Concluído com pendências: {result.Imported} nova(s), {result.Duplicates} já existente(s), {result.Unavailable} não disponível(is). A playlist contém apenas as obtidas." :
+                result.Unavailable > 0 ? $"Concluído com pendências: {result.Imported} nova(s), {result.Duplicates} já existente(s), {result.Unavailable} não disponível(is)"
+                    + (result.FailureBreakdown.Length > 0 ? $" ({result.FailureBreakdown})" : "") + (result.PlaylistId is null ? ". Nenhuma playlist foi criada." : ". A playlist contém apenas as obtidas.")
+                    + (result.Items.Where(i => i.Failure is not null).GroupBy(i => i.Failure!.Value).OrderByDescending(g => g.Count()).FirstOrDefault() is { } main
+                        ? " " + ImportFailures.Describe(main.Key) : "") :
                 $"Concluído: {result.Imported} nova(s), {result.Duplicates} já existente(s). Playlist “{ImportPlaylistName.Trim()}” criada.";
             if (result.Imported > 0 || result.PlaylistId is not null) { await ReloadPlaylistsAsync(); if (library is not null) await LoadCatalogAsync(true); }
         }

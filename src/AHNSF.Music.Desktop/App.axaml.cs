@@ -57,7 +57,7 @@ public partial class App : Application
                 .AddSingleton<IArtworkCache>(new ArtworkCache(Path.Combine(data, "artwork"), Log.Logger))
                 .AddSingleton<ITrackMetadataReader, TrackMetadataReader>()
                 .AddSingleton<ILibraryService, LibraryService>()
-                .AddSingleton<IImportMetadataProvider>(new SpotDlProcessAdapter(AppContext.BaseDirectory))
+                .AddSingleton<IImportMetadataProvider>(new SpotDlProcessAdapter(AppContext.BaseDirectory, Log.Logger))
                 .AddSingleton<IPlaylistImportService, PlaylistImportService>()
                 .AddSingleton(new AutoStartService(new WindowsStartupRegistry(), Environment.ProcessPath))
                 .AddSingleton<MainViewModel>().BuildServiceProvider();

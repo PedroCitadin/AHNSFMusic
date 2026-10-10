@@ -25,6 +25,14 @@ public sealed class PlaylistDownloadTests
             Copy-Item -LiteralPath $args[1] -Destination (Join-Path $dir ('request-' + [guid]::NewGuid().ToString('N') + '.json'))
             $output = $args[[array]::IndexOf($args, '--output') + 1]
             if ($mode -eq 'hang') { Start-Sleep -Seconds 30 }
+            if ($mode -eq 'bot') {
+                foreach ($entry in $request) {
+                    [Console]::Error.WriteLine("ERROR: [youtube] AbCdEfGhIjK: Sign in to confirm you" + [char]0x2019 + "re not a bot. Use --cookies-from-browser or --cookies for the authentication.")
+                    [Console]::Error.WriteLine("WARNING: Some YouTube downloads require Deno. Run spotdl --download-deno or install Deno system-wide.")
+                    Write-Output ($entry.url + " - AudioProviderError: YT-DLP download error - https://music.youtube.com/watch?v=AbCdEfGhIjK&si=segredo")
+                }
+                exit 1
+            }
             foreach ($entry in $request) {
                 $source = Join-Path $dir ($entry.song_id + '.mp3')
                 if (-not (Test-Path -LiteralPath $source)) { Write-Output "LookupError: $($entry.name)"; continue }
@@ -245,6 +253,84 @@ public sealed class PlaylistDownloadTests
         Assert.Equal(1, request.RootElement[0].GetProperty("list_position").GetInt32());
         Assert.Equal(1, request.RootElement[0].GetProperty("list_length").GetInt32());
         await Assert.ThrowsAsync<ArgumentException>(() => h.Adapter.DownloadAsync([preview.Tracks[0] with { SourceData = null }], Path.Combine(h.F.Base, "other"), null, default));
+    }
+
+    // Regression for the first real run (spotDL 4.5.2): YouTube "Sign in to confirm you're not a bot" plus the Deno warning.
+    private const string RealRunOutput = """
+        WARNING: Some YouTube downloads require Deno. Run spotdl --download-deno or install Deno system-wide.
+        ERROR: [youtube] AbCdEfGhIjK: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication.
+        ERROR: [youtube] NnChallenge: n challenge solving failed: Some formats may be missing. Ensure you have a supported JavaScript runtime
+        ERROR: [youtube] NetFailure1: Unable to download API page: <urlopen error [Errno 11001] getaddrinfo failed>
+        https://open.spotify.com/track/aaaaaaaaaa - AudioProviderError: YT-DLP download error - https://music.youtube.com/watch?v=AbCdEfGhIjK
+        https://open.spotify.com/track/bbbbbbbbbb - LookupError: No results found for song: B - Segunda
+        https://open.spotify.com/track/cccccccccc - FFmpegError: Failed to convert, preview: Conversion failed
+        https://open.spotify.com/track/dddddddddd - AudioProviderError: YT-DLP download error - https://music.youtube.com/watch?v=NnChallenge
+        https://open.spotify.com/track/eeeeeeeeee - AudioProviderError: YT-DLP download error - https://music.youtube.com/watch?v=NetFailure1
+        """;
+    private static ImportTrack Online(string id) => new(Guid.NewGuid(), 0, id, "A", TimeSpan.FromSeconds(1), SourceId: id,
+        SourceData: $$"""{"name":"{{id}}","url":"https://open.spotify.com/track/{{id}}","song_id":"{{id}}"}""");
+
+    [Fact] public void ClassifierSeparatesVerificationRuntimeNotFoundConversionAndNetwork()
+    {
+        var tracks = new[] { "aaaaaaaaaa", "bbbbbbbbbb", "cccccccccc", "dddddddddd", "eeeeeeeeee", "ffffffffff" }.Select(Online).ToArray();
+        var kinds = SpotDlOutputClassifier.Classify(RealRunOutput, tracks, denoAvailable: false);
+        Assert.Equal(ImportFailureKind.SourceVerification, kinds[tracks[0].Id]);
+        Assert.Equal(ImportFailureKind.NotFound, kinds[tracks[1].Id]);
+        Assert.Equal(ImportFailureKind.Conversion, kinds[tracks[2].Id]);
+        Assert.Equal(ImportFailureKind.RuntimeMissing, kinds[tracks[3].Id]);
+        Assert.Equal(ImportFailureKind.Network, kinds[tracks[4].Id]);
+        Assert.Equal(ImportFailureKind.SourceVerification, kinds[tracks[5].Id]); // no own line: the run-wide reason applies
+        var withDeno = SpotDlOutputClassifier.Classify(RealRunOutput, tracks, denoAvailable: true);
+        Assert.Equal(ImportFailureKind.Unknown, withDeno[tracks[3].Id]); // never blame a runtime that is installed
+        Assert.Equal(ImportFailureKind.SourceVerification, withDeno[tracks[0].Id]);
+        Assert.All(SpotDlOutputClassifier.Classify("saída sem padrão conhecido", tracks, false).Values, k => Assert.Equal(ImportFailureKind.Unknown, k));
+    }
+
+    [Fact] public void SanitizedLogDropsPathsQueryStringsAndSecretsButKeepsVideoId()
+    {
+        var text = "Saved to C:\\Temp\\AHNSF Music\\Import\\abc\\1.mp3\nERROR https://music.youtube.com/watch?v=AbCdEfGhIjK&si=segredo\n"
+            + "https://open.spotify.com/playlist/x?si=privado token=abc123 cookie: sessao";
+        var clean = SpotDlOutputClassifier.Sanitize(text, ["C:\\Temp\\AHNSF Music\\Import\\abc"]);
+        Assert.DoesNotContain("AHNSF Music\\Import", clean); Assert.DoesNotContain("segredo", clean); Assert.DoesNotContain("privado", clean);
+        Assert.DoesNotContain("abc123", clean); Assert.DoesNotContain("sessao", clean);
+        Assert.Contains("watch?v=AbCdEfGhIjK", clean);
+    }
+
+    [Fact] public async Task YouTubeBotCheckIsReportedPerTrackInSummaryAndHistoryWithoutCookiesOrUrls()
+    {
+        await using var h = new Harness();
+        await h.StartAsync(Playlist(Entry("aaaaaaaaaa", "Primeira", "A", 1), Entry("bbbbbbbbbb", "Segunda", "B", 2)), history: true);
+        h.Song("aaaaaaaaaa", "Primeira", "A"); h.Mode("bot");
+        var preview = await h.Service.PreviewUrlAsync(Url);
+        var result = await h.Service.ImportAsync(preview, All(preview), h.F.Music, "Bloqueada", null, default);
+        Assert.Equal(0, result.Imported); Assert.Equal(2, result.Unavailable); Assert.Null(result.PlaylistId);
+        Assert.All(result.Items, i => Assert.Equal(ImportFailureKind.SourceVerification, i.Failure));
+        Assert.All(result.Items, i => Assert.Equal(ImportFailures.Describe(ImportFailureKind.SourceVerification), i.Error));
+        Assert.Equal("2 por verificação do YouTube", result.FailureBreakdown);
+        Assert.DoesNotContain("--cookies", h.Calls.Split("----")[1]);
+        await h.History!.FlushAsync();
+        var failed = Assert.Single((await h.History.QueryAsync(new(Type: OperationalEventType.ImportFailed))).Events);
+        Assert.Contains("verificação do YouTube", failed.Description);
+        Assert.DoesNotContain("http", failed.Description); Assert.DoesNotContain("segredo", failed.Description);
+    }
+
+    [Fact] public async Task DenoInPackageMustMatchPinnedHashBeforeAnyProcessRuns()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "AHNSF import deno " + Guid.NewGuid().ToString("N"));
+        try
+        {
+            string Write(string relative, string content)
+            { var path = Path.Combine(root, "Tools", relative); Directory.CreateDirectory(Path.GetDirectoryName(path)!); File.WriteAllText(path, content); return path; }
+            string Hash(string path) => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(path)));
+            var spot = Write(Path.Combine("spotdl", "spotdl.exe"), "fake spotdl"); var ffmpeg = Write(Path.Combine("ffmpeg", "ffmpeg.exe"), "fake ffmpeg");
+            var deno = Write(Path.Combine("deno", "deno.exe"), "fake deno");
+            Write("manifest.json", $$"""{"SpotDlVersion":"4.5.2","SpotDlSha256":"{{Hash(spot)}}","FFmpegVersion":"9.0.2","FFmpegSha256":"{{Hash(ffmpeg)}}","DenoVersion":"2.9.7","DenoSha256":"{{new string('0', 64)}}"}""");
+            var status = await new SpotDlProcessAdapter(root).DiagnoseAsync();
+            Assert.False(status.Ready); Assert.Contains("Deno", status.Message);
+            Write("manifest.json", $$"""{"SpotDlVersion":"4.5.2","SpotDlSha256":"{{Hash(spot)}}","FFmpegVersion":"9.0.2","FFmpegSha256":"{{Hash(ffmpeg)}}","DenoVersion":"1.0.0","DenoSha256":"{{Hash(deno)}}"}""");
+            Assert.Contains("Deno", (await new SpotDlProcessAdapter(root).DiagnoseAsync()).Message);
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
     }
 
     private sealed class PlayingAudio : IAudioEngine

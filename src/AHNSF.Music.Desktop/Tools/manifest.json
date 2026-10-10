@@ -2,5 +2,7 @@
   "SpotDlVersion": "4.5.2",
   "SpotDlSha256": "",
   "FFmpegVersion": "9.0.2",
-  "FFmpegSha256": ""
+  "FFmpegSha256": "",
+  "DenoVersion": "2.9.7",
+  "DenoSha256": ""
 }
