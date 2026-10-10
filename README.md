@@ -256,7 +256,7 @@ Cada faixa não obtida mostra o motivo no resumo, e o Histórico registra a cont
 | Falha de conexão | DNS, conexão recusada, tempo esgotado | Verificar a internet e repetir. |
 | Arquivo obtido incompleto ou inválido | verificação local (tag, duração, tamanho) | Repetir; o arquivo não entra na biblioteca. |
 
-A saída do spotDL/yt-dlp (últimas linhas, sem caminhos locais, parâmetros de URL, tokens ou cookies) vai para o log técnico em `%LOCALAPPDATA%\AHNSF Music\logs`. Texto não reconhecido vira “erro não identificado”, nunca sucesso.
+A saída do spotDL/yt-dlp (últimas linhas, sem caminhos locais, parâmetros de URL, tokens ou cookies) vai para o log técnico em `%LOCALAPPDATA%\AHNSF Music\logs`. Texto não reconhecido vira “erro não identificado”, nunca sucesso. O download roda o spotDL em `--log-level DEBUG` porque a versão 4.5.2 só expõe o motivo do yt-dlp nesse nível.
 
 Limites: playlists do YouTube não são aceitas (o spotDL só aceita pares YouTube Music|Spotify); o spotDL pode escolher uma gravação diferente da original; o progresso conta arquivos recebidos no staging; sem Deno alguns downloads do yt-dlp podem falhar. Requer internet durante a importação; a reprodução continua offline.
 

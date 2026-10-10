@@ -175,7 +175,9 @@ public sealed class SpotDlProcessAdapter : IImportMetadataProvider
             await File.WriteAllTextAsync(request, entries.ToJsonString(), new UTF8Encoding(false), token).ConfigureAwait(false);
             var args = launch.PrefixArguments.Concat(["download", request, "--output", Path.Combine(output, "{list-position}.{output-ext}"),
                 "--format", "mp3", "--overwrite", "skip", "--lyrics", "--threads", "2", "--ffmpeg", launch.FFmpeg,
-                "--log-level", "WARNING", "--simple-tui", "--print-errors"]).ToArray();
+                "--log-level", "DEBUG", "--simple-tui", "--print-errors"]).ToArray();
+            // DEBUG is required: spotDL 4.5.2 swallows yt-dlp messages (YTDLLogger) and re-raises "YT-DLP download error - url";
+            // the real reason ("Sign in to confirm you're not a bot", Deno, unavailable) only appears in its debug line and traceback.
             var timeout = TimeSpan.FromTicks(Math.Min(ImportProcessRunner.MaximumTimeout.Ticks, perTrack.Ticks * (tracks.Count + 1L)));
             using var poll = CancellationTokenSource.CreateLinkedTokenSource(token);
             var monitor = ReportFilesAsync(output, tracks.Count, progress, poll.Token);
@@ -271,15 +273,16 @@ public static class ImportProcessRunner
         process.StandardInput.Close(); // A helper waiting for console input gets EOF instead of hanging.
         using var timeoutSource = new CancellationTokenSource(timeout);
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(token, timeoutSource.Token);
-        // Keep the newest 256 KiB per stream: spotDL prints its error summary at the very end.
+        // Keep the newest 2 MiB per stream: spotDL prints its error summary at the very end (DEBUG output is verbose).
         var stdout = new Queue<string>(); var stderr = new Queue<string>();
         async Task CaptureAsync(StreamReader stream, Queue<string> target)
         {
             long size = 0;
             while (await stream.ReadLineAsync().ConfigureAwait(false) is { } line)
             {
-                var kept = line[..Math.Min(line.Length, 4096)];
-                lock (target) { target.Enqueue(kept); size += kept.Length; while (size > 262144 && target.Count > 1) size -= target.Dequeue().Length; }
+                // rich pads log lines to the console width (COLUMNS): trim so padding does not evict real lines from the window.
+                var kept = line.TrimEnd()[..Math.Min(line.TrimEnd().Length, 4096)];
+                lock (target) { target.Enqueue(kept); size += kept.Length; while (size > 2_097_152 && target.Count > 1) size -= target.Dequeue().Length; }
                 // spotDL console progress is unstable. Display only a generic heartbeat, never parse it as a contract.
                 progress?.Report(new(0, 0, "Ferramenta auxiliar em execução…"));
             }
@@ -326,20 +329,22 @@ public static class SpotDlOutputClassifier
             if (SongUrl(track) is not { } url || !errors.TryGetValue(url, out var error)) { result[track.Id] = global ?? ImportFailureKind.Unknown; continue; }
             // yt-dlp's reason is on its own line, keyed by the video id spotDL quotes in its error.
             var detail = VideoId.Match(error.Message) is { Success: true } v
-                ? string.Join("\n", lines.Where(l => l.Contains(v.Groups["id"].Value, StringComparison.Ordinal) && l.Contains("ERROR", StringComparison.Ordinal)))
+                ? string.Join("\n", lines.Where(l => l.Contains(v.Groups["id"].Value, StringComparison.Ordinal) && !SongError.IsMatch(l)
+                    && l.Contains("error", StringComparison.OrdinalIgnoreCase)))
                 : "";
+            // When this track's own reason lines are missing (scrolled out, or rich-formatted), the run-wide reason applies.
             result[track.Id] = error.Type switch
             {
                 "LookupError" => ImportFailureKind.NotFound,
                 "FFmpegError" => ImportFailureKind.Conversion,
                 _ => FromText(error.Message + "\n" + detail, denoAvailable)
-                    ?? (error.Type == "AudioProviderError" && detail.Length == 0 ? global : null) ?? ImportFailureKind.Unknown,
+                    ?? (error.Type == "AudioProviderError" ? global : null) ?? ImportFailureKind.Unknown,
             };
         }
         return result;
     }
     private static ImportFailureKind? Global(IEnumerable<string> lines, bool deno) =>
-        FromText(string.Join("\n", lines.Where(l => l.Contains("ERROR", StringComparison.Ordinal) || l.Contains("Deno", StringComparison.Ordinal))), deno);
+        FromText(string.Join("\n", lines.Where(l => l.Contains("error", StringComparison.OrdinalIgnoreCase) || l.Contains("Deno", StringComparison.Ordinal))), deno);
     private static ImportFailureKind? FromText(string text, bool deno)
     {
         bool Has(params string[] parts) => parts.Any(p => text.Contains(p, StringComparison.OrdinalIgnoreCase));

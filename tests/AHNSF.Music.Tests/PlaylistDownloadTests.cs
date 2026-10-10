@@ -281,9 +281,69 @@ public sealed class PlaylistDownloadTests
         Assert.Equal(ImportFailureKind.Network, kinds[tracks[4].Id]);
         Assert.Equal(ImportFailureKind.SourceVerification, kinds[tracks[5].Id]); // no own line: the run-wide reason applies
         var withDeno = SpotDlOutputClassifier.Classify(RealRunOutput, tracks, denoAvailable: true);
-        Assert.Equal(ImportFailureKind.Unknown, withDeno[tracks[3].Id]); // never blame a runtime that is installed
+        Assert.Equal(ImportFailureKind.SourceVerification, withDeno[tracks[3].Id]); // installed runtime is never blamed; the run-wide reason applies
         Assert.Equal(ImportFailureKind.SourceVerification, withDeno[tracks[0].Id]);
         Assert.All(SpotDlOutputClassifier.Classify("saída sem padrão conhecido", tracks, false).Values, k => Assert.Equal(ImportFailureKind.Unknown, k));
+    }
+
+    // Second real run: spotDL's YTDLLogger turns the yt-dlp message into the *cause* of "YT-DLP download error - url".
+    // At WARNING the reason never reaches the console (track shown as unknown); at DEBUG it appears in the debug line and traceback.
+    private const string RealDebugOutput = """
+        DEBUG:spotdl.providers.audio.base:ERROR: [youtube] AbCdEfGhIjK: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication.
+        ERROR:spotdl.download.progress_handler:Traceback (most recent call last):
+          File "spotdl\providers\audio\base.py", line 401, in get_download_metadata
+        spotdl.providers.audio.base.AudioProviderError: ERROR: [youtube] AbCdEfGhIjK: Sign in to confirm you’re not a bot.
+        The above exception was the direct cause of the following exception:
+        spotdl.providers.audio.base.AudioProviderError: YT-DLP download error - https://music.youtube.com/watch?v=AbCdEfGhIjK
+        ERROR:spotdl:https://open.spotify.com/track/aaaaaaaaaa - AudioProviderError: YT-DLP download error - https://music.youtube.com/watch?v=AbCdEfGhIjK
+        """;
+
+    [Fact] public void ReasonOnlyInDebugTracebackIsStillClassifiedAndSummaryAloneIsUnknown()
+    {
+        var track = Online("aaaaaaaaaa");
+        Assert.Equal(ImportFailureKind.SourceVerification, SpotDlOutputClassifier.Classify(RealDebugOutput, [track], true)[track.Id]);
+        var summaryOnly = "https://open.spotify.com/track/aaaaaaaaaa - AudioProviderError: YT-DLP download error - https://music.youtube.com/watch?v=AbCdEfGhIjK";
+        Assert.Equal(ImportFailureKind.Unknown, SpotDlOutputClassifier.Classify(summaryOnly, [track], true)[track.Id]);
+    }
+
+    // Third real run (10 tracks): rich-formatted summary lines carry the video id, so they used to count as "detail"
+    // and hid the run-wide reason; 4 of 10 tracks whose own reason lines were not captured ended up "unknown".
+    [Fact] public void RichSummaryLinesDoNotHideTheRunWideReason()
+    {
+        var a = Online("0S6CXA5LpRDX6b4akgrOot"); var b = Online("4u7EnebtmKWzUH433cf5Qv");
+        var output = string.Join('\n',
+            "                    ExtractorError: [youtube] BSTsnWoslP4: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication." + new string(' ', 300),
+            "                    AudioProviderError: YT-DLP download error - https://music.youtube.com/watch?v=BSTsnWoslP4",
+            "[21:54:32] ERROR    MainThread - https://open.spotify.com/track/0S6CXA5LpRDX6b4akgrOot - AudioProviderError: YT-DLP download error - https://music.youtube.com/watch?v=XzwF8urswkk" + new string(' ', 300),
+            "[21:54:32] ERROR    MainThread - https://open.spotify.com/track/4u7EnebtmKWzUH433cf5Qv - AudioProviderError: YT-DLP download error - https://music.youtube.com/watch?v=BSTsnWoslP4");
+        var kinds = SpotDlOutputClassifier.Classify(output, [a, b], true);
+        Assert.Equal(ImportFailureKind.SourceVerification, kinds[a.Id]);
+        Assert.Equal(ImportFailureKind.SourceVerification, kinds[b.Id]);
+    }
+
+    [Fact] public async Task CaptureTrimsConsolePaddingSoLongRunsKeepTheirReasons()
+    {
+        var work = Path.Combine(Path.GetTempPath(), "AHNSF-import-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(work);
+        try
+        {
+            var script = Path.Combine(work, "padded.ps1");
+            await File.WriteAllTextAsync(script, "Write-Output ('primeira linha' + (' ' * 3000)); for ($i = 0; $i -lt 900; $i++) { Write-Output (('linha ' + $i) + (' ' * 3000)) }");
+            var result = await ImportProcessRunner.RunAsync(PowerShell(), ["-NoProfile", "-File", script], work, TimeSpan.FromSeconds(60), null, default);
+            Assert.StartsWith("primeira linha\n", result.Stdout); // ~2.7 MB padded, ~12 KB trimmed: nothing evicted
+            Assert.DoesNotContain("   ", result.Stdout);
+        }
+        finally { Directory.Delete(work, true); }
+    }
+
+    [Fact] public async Task DownloadRunsSpotDlAtDebugSoTheSourceReasonIsVisible()
+    {
+        await using var h = new Harness();
+        await h.StartAsync(Playlist(Entry("aaaaaaaaaa", "Primeira", "A", 1)));
+        h.Song("aaaaaaaaaa", "Primeira", "A");
+        var preview = await h.Service.PreviewUrlAsync(Url);
+        await h.Service.ImportAsync(preview, All(preview), h.F.Music, "Depuração", null, default);
+        var args = h.Calls.Split("----")[1].Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        Assert.Equal("DEBUG", args[Array.IndexOf(args, "--log-level") + 1]);
     }
 
     [Fact] public void SanitizedLogDropsPathsQueryStringsAndSecretsButKeepsVideoId()
