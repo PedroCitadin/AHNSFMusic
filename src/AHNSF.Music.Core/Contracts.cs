@@ -20,7 +20,11 @@ public sealed record Track(string Path, string Title, string Artist, TimeSpan Du
 }
 public sealed record AppSettings(string? MusicDirectory = null, float Volume = 0.35f,
     double Width = 1100, double Height = 760, int? X = null, int? Y = null,
-    bool Shuffle = false, RepeatMode Repeat = RepeatMode.Off);
+    bool Shuffle = false, RepeatMode Repeat = RepeatMode.Off,
+    bool AutoStartEnabled = false, bool StartMinimized = false,
+    CloseBehavior CloseBehavior = CloseBehavior.MinimizeToTray, bool CloseNoticeShown = false,
+    AudioDeviceSelection? AudioDevice = null, int HistoryRetentionDays = 90);
+public enum CloseBehavior { MinimizeToTray, Exit }
 public sealed record ScanResult(IReadOnlyList<Track> Tracks, IReadOnlyList<string> Warnings);
 public interface IMusicScanner { Task<ScanResult> ScanAsync(string directory, CancellationToken cancellationToken); }
 public interface ITrackDurationReader { TimeSpan Read(string path); }

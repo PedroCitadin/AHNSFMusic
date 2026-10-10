@@ -11,6 +11,17 @@ public sealed class PlaybackService : IPlaybackService, IDisposable
     private long queueRevision;
     private bool disposed;
     private bool scheduledRepeat;
+    private readonly IOperationalHistoryService? history;
+    private OperationalActionOrigin actionOrigin = OperationalActionOrigin.Manual;
+    private Guid? ruleId;
+    private string? deviceId;
+    public void SetOperationalContext(OperationalActionOrigin origin, Guid? ruleId = null, string? deviceId = null)
+    { lock (gate) { actionOrigin = origin; this.ruleId = ruleId; this.deviceId = deviceId; } }
+    private void Observe(OperationalEventType type, string reason)
+    {
+        try { history?.Playback(type, CurrentTrack, Queue.Origin, actionOrigin, reason, ruleId, deviceId); }
+        catch { /* Observability must never compromise audio. */ }
+    }
     public float Volume
     {
         get { lock (gate) return audio.Volume; }
@@ -23,8 +34,8 @@ public sealed class PlaybackService : IPlaybackService, IDisposable
     public PlayerState State => audio.State;
     public string Message { get; private set; } = "Selecione uma música e pressione Reproduzir.";
     public Exception? LastError { get; private set; }
-    public PlaybackService(IAudioEngine audio, IPlaylistService? playlists = null, Action<Action>? dispatch = null)
-    { this.audio = audio; this.playlists = playlists; this.dispatch = dispatch ?? (action => action()); audio.Ended += OnEnded; }
+    public PlaybackService(IAudioEngine audio, IPlaylistService? playlists = null, Action<Action>? dispatch = null, IOperationalHistoryService? history = null)
+    { this.audio = audio; this.playlists = playlists; this.dispatch = dispatch ?? (action => action()); this.history = history; audio.Ended += OnEnded; }
     private void Notify(string? message = null) { if (message is not null) Message = message; Changed?.Invoke(this, EventArgs.Empty); }
     public async Task LoadPlaylistAsync(Guid id, bool start = false, Guid? itemId = null, CancellationToken token = default)
     {
@@ -54,7 +65,7 @@ public sealed class PlaybackService : IPlaybackService, IDisposable
     private void PlayCore()
     {
         if (CurrentTrack is not null && State == PlayerState.Paused)
-        { try { audio.Play(); Notify($"Reproduzindo: {CurrentTrack.Title}"); } catch (Exception ex) { Fail(ex); } return; }
+        { try { audio.Play(); Observe(OperationalEventType.PlaybackResumed, "Reprodução retomada."); Notify($"Reproduzindo: {CurrentTrack.Title}"); } catch (Exception ex) { Fail(ex); } return; }
         var item = Queue.CurrentItem ?? Queue.Navigate(1);
         if (item is null) { Notify("A fila está vazia ou não contém músicas disponíveis."); return; }
         Start(item);
@@ -66,6 +77,7 @@ public sealed class PlaybackService : IPlaybackService, IDisposable
             var item = Queue.Items.FirstOrDefault(i => i.Id == id);
             if (item is null) { Notify("O item não está mais na fila."); return; }
             if (!PlaybackQueue.IsPlayable(item.Track)) { Notify("Música indisponível. A referência foi preservada na fila."); return; }
+            if (CurrentTrack is not null) Observe(OperationalEventType.ManualTrackChange, "Seleção manual de música.");
             Queue.SelectOccurrence(id); Start(item);
         }
     }
@@ -73,6 +85,7 @@ public sealed class PlaybackService : IPlaybackService, IDisposable
     {
         lock (gate)
         {
+            if (CurrentTrack is not null) Observe(OperationalEventType.ManualTrackChange, "Seleção manual na biblioteca.");
             Queue.Replace(library.Count == 0 ? [track] : library); queueRevision++;
             var selected = Queue.Select(track);
             if (selected is null) { Queue.Add(track); Queue.Select(track); }
@@ -83,16 +96,16 @@ public sealed class PlaybackService : IPlaybackService, IDisposable
     {
         generation++; LastError = null;
         if (!PlaybackQueue.IsPlayable(item.Track)) { StopCore(); Notify("Música indisponível. A referência foi preservada na fila."); return; }
-        try { audio.Load(item.Track.Path); CurrentTrack = item.Track; audio.Play(); Notify($"Reproduzindo: {item.Track.Title}"); }
+        try { audio.Load(item.Track.Path); CurrentTrack = item.Track; audio.Play(); Observe(OperationalEventType.PlaybackStarted, $"Reproduzindo: {item.Track.Title}"); Notify($"Reproduzindo: {item.Track.Title}"); }
         catch (Exception ex) { Fail(ex); }
     }
     public void Pause()
-    { lock (gate) { try { audio.Pause(); Notify($"Pausado: {CurrentTrack?.Title}"); } catch (Exception ex) { Fail(ex); } } }
+    { lock (gate) { try { audio.Pause(); Observe(OperationalEventType.PlaybackPaused, "Reprodução pausada."); Notify($"Pausado: {CurrentTrack?.Title}"); } catch (Exception ex) { Fail(ex); } } }
     public void Stop() { lock (gate) { StopCore(); Notify("Reprodução parada."); } }
     private void StopCore()
-    { generation++; CurrentTrack = null; try { audio.Stop(); } catch (Exception ex) { LastError = ex; } }
+    { Observe(OperationalEventType.PlaybackStopped, "Reprodução parada."); generation++; CurrentTrack = null; try { audio.Stop(); } catch (Exception ex) { LastError = ex; } }
     private void Fail(Exception error)
-    { StopCore(); LastError = error; Notify("Não foi possível reproduzir a música. O arquivo pode estar inválido ou removido, ou a saída de áudio indisponível."); }
+    { Observe(OperationalEventType.PlaybackError, "Falha de reprodução; consulte o log técnico."); StopCore(); LastError = error; Notify("Não foi possível reproduzir a música. O arquivo pode estar inválido ou removido, ou a saída de áudio indisponível."); }
     public void Next() { lock (gate) Move(1, false); }
     public void Previous() { lock (gate) Move(-1, false); }
     private void Move(int direction, bool automatic)
@@ -100,8 +113,8 @@ public sealed class PlaybackService : IPlaybackService, IDisposable
         var repeat = Queue.Repeat; QueueItem? item;
         try { if (automatic && scheduledRepeat) Queue.Repeat = RepeatMode.Queue; item = Queue.Navigate(direction, automatic); }
         finally { Queue.Repeat = repeat; }
-        if (item is not null) Start(item);
-        else if (automatic) { StopCore(); Notify("Reprodução concluída. Fim da fila."); }
+        if (item is not null) { Observe(automatic ? OperationalEventType.AutomaticAdvance : OperationalEventType.ManualTrackChange, automatic ? "Avanço automático da fila." : "Navegação manual da fila."); Start(item); }
+        else if (automatic) { Observe(OperationalEventType.PlaybackEnded, "Fim da fila."); StopCore(); Notify("Reprodução concluída. Fim da fila."); }
         else Notify(direction > 0 ? "Você chegou ao fim da fila." : "Você está na primeira música.");
     }
     private void OnEnded(object? sender, AudioEndedEventArgs args)

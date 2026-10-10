@@ -67,9 +67,12 @@ public partial class MainViewModel : ObservableObject, IDisposable, IAsyncDispos
     public AppSettings Settings => settings;
 
     public MainViewModel(IAudioEngine audio, IMusicScanner scanner, ISettingsStore store, ILogger logger, ILibraryService? library = null,
-        IPlaylistService? playlists = null, PlaybackService? playback = null, IScheduleService? scheduleStore = null, ScheduleCoordinator? scheduler = null)
+        IPlaylistService? playlists = null, PlaybackService? playback = null, IScheduleService? scheduleStore = null, ScheduleCoordinator? scheduler = null,
+        AutoStartService? autoStart = null, IAudioDeviceService? audioDevices = null, IOperationalHistoryService? history = null,
+        IPlaylistImportService? importService = null)
     {
-        this.audio = audio; this.scanner = scanner; this.store = store; this.logger = logger;
+        this.audio = audio; this.scanner = scanner; this.store = store; this.logger = logger; this.autoStart = autoStart; this.audioDevices = audioDevices; this.history = history; this.importService = importService;
+        HistoryType = HistoryTypes[0]; HistorySeverity = HistorySeverities[0];
         this.library = library;
         this.playlists = playlists;
         this.scheduleStore = scheduleStore; this.scheduler = scheduler;
@@ -81,11 +84,17 @@ public partial class MainViewModel : ObservableObject, IDisposable, IAsyncDispos
         timer.Stop();
         InitializePresentation();
     }
-    public async Task InitializeAsync()
+    private Task? initialization;
+    /// <summary>Idempotent: the app starts services even when the window stays hidden in the tray; the window awaits the same task.</summary>
+    public Task InitializeAsync() => initialization ??= InitializeCoreAsync();
+    private async Task InitializeCoreAsync()
     {
         try { settings = await store.LoadAsync(); }
         catch (Exception ex) { Error(ex, "Não foi possível carregar as configurações. Serão usados os valores padrão."); }
         if (disposed) return;
+        LoadPreferences();
+        if (history is not null) { await history.StartAsync(LaunchedByWindows, settings.HistoryRetentionDays); HistoryRetentionDays = settings.HistoryRetentionDays is 30 or 90 or 180 or 365 ? settings.HistoryRetentionDays : 90; await RefreshHistorySummaryAsync(); }
+        await InitializeAudioDevicesAsync();
         Volume = Math.Clamp(settings.Volume * 100, 0, 100);
         audio.Volume = (float)(Volume / 100);
         var savedShuffle = settings.Shuffle; var savedRepeat = settings.Repeat;
@@ -110,7 +119,9 @@ public partial class MainViewModel : ObservableObject, IDisposable, IAsyncDispos
     partial void OnSectionChanged(string value)
     {
         OnPropertyChanged(nameof(ShowLibrary)); OnPropertyChanged(nameof(ShowSettings));
-        OnPropertyChanged(nameof(ShowSchedule));
+        OnPropertyChanged(nameof(ShowSchedule)); OnPropertyChanged(nameof(ShowHistory)); OnPropertyChanged(nameof(ShowImport));
+        if (value == "Histórico") TrackBackground(RefreshHistoryAsync());
+        if (value == "Importar músicas") TrackBackground(RefreshImportToolsAsync());
         OnPropertyChanged(nameof(ShowPlaylists)); OnPropertyChanged(nameof(ShowQueue));
         foreach (var property in new[] { nameof(ShowHome), nameof(IsLibrarySection), nameof(IsPlaylistSection), nameof(IsQueueSection), nameof(IsScheduleSection), nameof(IsSettingsSection), nameof(PageTitle), nameof(PageDescription) }) OnPropertyChanged(property);
     }
@@ -137,7 +148,8 @@ public partial class MainViewModel : ObservableObject, IDisposable, IAsyncDispos
         if (initialized) TrackBackground(SaveAsync());
         OnPropertyChanged(nameof(VolumeLabel));
     }
-    [RelayCommand] private void Navigate(string destination) => Section = destination;
+    // Global shortcuts (Ctrl+1–6) must not act behind an open modal dialog.
+    [RelayCommand] private void Navigate(string destination) { if (!IsModalOpen) Section = destination; }
     [RelayCommand] private async Task ChooseDirectoryAsync()
     {
         if (PickDirectory is null) return;
@@ -289,6 +301,8 @@ public partial class MainViewModel : ObservableObject, IDisposable, IAsyncDispos
     [RelayCommand] private void Previous() { ManualIntervention(); playback.Previous(); }
     private void Tick()
     {
+        if (history is not null && DateTimeOffset.UtcNow >= nextHistorySummary && !historySummaryLoading)
+        { nextHistorySummary = DateTimeOffset.UtcNow.AddSeconds(15); TrackBackground(RefreshHistorySummaryAsync()); }
         try { if (CurrentTrack is not null) SetPosition(audio.Position.TotalSeconds); }
         catch (Exception ex) { FailPlayback(ex); }
     }
@@ -315,6 +329,7 @@ public partial class MainViewModel : ObservableObject, IDisposable, IAsyncDispos
         disposed = true; lifetime.Cancel(); timer.Stop(); Stop(); playback.Changed -= OnPlaybackChanged; playback.Dispose(); lifetime.Dispose();
         searching?.Cancel(); searching?.Dispose();
         if (library is not null) library.Changed -= OnLibraryChanged;
+        if (audioDevices is not null) audioDevices.Changed -= OnAudioDevicesChanged;
     }
     private void TrackBackground(Task task)
     {
@@ -325,7 +340,8 @@ public partial class MainViewModel : ObservableObject, IDisposable, IAsyncDispos
     public async ValueTask DisposeAsync()
     {
         if (scheduler is not null) await scheduler.DisposeAsync();
-        Dispose(); Task[] pending; lock (backgroundTasks) pending = backgroundTasks.ToArray();
+        if (audioDevices is not null) await audioDevices.DisposeAsync();
+        historySearching?.Cancel(); Dispose(); Task[] pending; lock (backgroundTasks) pending = backgroundTasks.ToArray();
         try { await Task.WhenAll(pending).ConfigureAwait(false); }
         catch (OperationCanceledException) { }
         await saving.WaitAsync().ConfigureAwait(false); saving.Release();

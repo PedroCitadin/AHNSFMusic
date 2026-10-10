@@ -6,6 +6,7 @@
     <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
   </PropertyGroup>
   <ItemGroup>
+    <Content Include="Tools/manifest.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <ProjectReference Include="../AHNSF.Music.Core/AHNSF.Music.Core.csproj" />
     <ProjectReference Include="../AHNSF.Music.Audio/AHNSF.Music.Audio.csproj" />
     <ProjectReference Include="../AHNSF.Music.Infrastructure/AHNSF.Music.Infrastructure.csproj" />

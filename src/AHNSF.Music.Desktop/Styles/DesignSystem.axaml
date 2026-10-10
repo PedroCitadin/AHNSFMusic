@@ -57,6 +57,7 @@
   <Style Selector="Button:pressed /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="#3B4A57"/></Style>
   <Style Selector="Button.accent"><Setter Property="Background" Value="{StaticResource AccentBrush}"/><Setter Property="Foreground" Value="#10231E"/><Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/><Setter Property="FontWeight" Value="SemiBold"/></Style>
   <Style Selector="Button.accent:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="#B3E5D9"/></Style>
+  <Style Selector="TextBlock.warning"><Setter Property="Foreground" Value="{StaticResource WarningBrush}"/></Style>
   <Style Selector="Button.danger"><Setter Property="Foreground" Value="{StaticResource DangerBrush}"/></Style>
   <Style Selector="Button.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="#3A2A31"/><Setter Property="BorderBrush" Value="#795055"/><Setter Property="Foreground" Value="{StaticResource DangerBrush}"/></Style>
   <Style Selector="Button.ghost"><Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/><Setter Property="Foreground" Value="{StaticResource MutedBrush}"/></Style>

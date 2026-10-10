@@ -16,7 +16,7 @@ function Invoke-DotNet([string[]]$Arguments) {
 switch ($Action) {
     'Restore' { Invoke-DotNet @('restore','AHNSF.Music.sln','--disable-parallel','-m:1') }
     'Build' { Invoke-DotNet @('build','AHNSF.Music.sln','-c',$Configuration,'--no-restore','-m:1','-p:UseSharedCompilation=false') }
-    'Test' { Invoke-DotNet @('test','AHNSF.Music.sln','-c',$Configuration,'--no-build','--no-restore','-m:1','--logger','trx;LogFileName=phase05.trx') }
+    'Test' { Invoke-DotNet @('test','AHNSF.Music.sln','-c',$Configuration,'--no-build','--no-restore','-m:1','--logger','trx;LogFileName=phase081.trx') }
     'Validate' { & $PSCommandPath Restore; & $PSCommandPath Build -Configuration Debug; & $PSCommandPath Build -Configuration Release; & $PSCommandPath Test -Configuration Release }
     'Run' { Invoke-DotNet @('run','--project','src/AHNSF.Music.Desktop','-c',$Configuration,'--no-restore') }
 }

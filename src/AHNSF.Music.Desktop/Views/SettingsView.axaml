@@ -1,5 +1,18 @@
 <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Class="AHNSF.Music.Desktop.Views.SettingsView">
   <ScrollViewer HorizontalScrollBarVisibility="Disabled"><StackPanel Spacing="16" MaxWidth="820" HorizontalAlignment="Left" Margin="0,0,14,0">
+    <Border Classes="card" IsVisible="{Binding HasAudioDeviceService}"><StackPanel Spacing="10">
+      <TextBlock Text="Dispositivo de saída de áudio" Classes="heading"/>
+      <CheckBox Content="Utilizar o dispositivo padrão do Windows" IsChecked="{Binding UseDefaultAudioOutput}" IsEnabled="{Binding !IsChangingAudioOutput}"/>
+      <ComboBox ItemsSource="{Binding AudioOutputs}" SelectedItem="{Binding SelectedAudioOutput}" IsEnabled="{Binding IsAudioSelectionEnabled}" HorizontalAlignment="Stretch" PlaceholderText="Escolha a interface de áudio" AutomationProperties.Name="Dispositivo de saída">
+        <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Label}" TextWrapping="Wrap"/></DataTemplate></ComboBox.ItemTemplate>
+      </ComboBox>
+      <WrapPanel><Button Content="Aplicar seleção" Classes="accent" Command="{Binding ApplyAudioOutputCommand}" IsEnabled="{Binding !IsChangingAudioOutput}" Margin="0,0,8,4"/><Button Content="Atualizar dispositivos" Command="{Binding RefreshAudioOutputsCommand}" IsEnabled="{Binding !IsChangingAudioOutput}" Margin="0,0,0,4"/></WrapPanel>
+      <TextBlock Text="{Binding AudioDeviceMessage}" Classes.warning="{Binding AudioDeviceNeedsAttention}" TextWrapping="Wrap"/>
+      <TextBlock Text="{Binding AudioDeviceFeedback}" Classes="muted" TextWrapping="Wrap"/>
+      <Grid ColumnDefinitions="150,*"><TextBlock Text="Configurado" Classes="muted"/><TextBlock Grid.Column="1" Text="{Binding AudioDeviceConfigured}" TextWrapping="Wrap"/></Grid>
+      <Grid ColumnDefinitions="150,*"><TextBlock Text="Em uso" Classes="muted"/><TextBlock Grid.Column="1" Text="{Binding AudioDeviceEffective}" TextWrapping="Wrap"/></Grid>
+      <TextBlock Text="Para a mesa USB, escolha a interface específica. Não há troca silenciosa para alto-falantes internos. Se o padrão do Windows mudar, aplique a seleção para autorizar a nova saída. A troca conta como intervenção manual." Classes="muted" FontSize="12" TextWrapping="Wrap"/>
+    </StackPanel></Border>
     <Border Classes="card"><StackPanel Spacing="10">
       <TextBlock Text="Pasta musical" Classes="heading"/>
       <TextBlock Text="{Binding MusicDirectory}" TextWrapping="Wrap" Classes="muted"/>
@@ -10,12 +23,34 @@
     <Border Classes="card"><StackPanel Spacing="8">
       <TextBlock Text="Reprodução" Classes="heading"/>
       <TextBlock Text="{Binding VolumeLabel}"/>
-      <TextBlock Text="O volume, Aleatório e Repetir são salvos automaticamente. A reprodução usa a saída de áudio padrão do Windows." TextWrapping="Wrap" Classes="muted" FontSize="12"/>
+      <TextBlock Text="O volume, Aleatório e Repetir são salvos automaticamente. A reprodução usa a saída configurada neste aplicativo, sem alterar o volume global do Windows." TextWrapping="Wrap" Classes="muted" FontSize="12"/>
+    </StackPanel></Border>
+    <Border Classes="card"><StackPanel Spacing="10">
+      <TextBlock Text="Inicialização e janela" Classes="heading"/>
+      <CheckBox Content="Iniciar AHNSF Music com o Windows" IsChecked="{Binding AutoStartEnabled}" ToolTip.Tip="Somente para este usuário do Windows. Não exige administrador."/>
+      <CheckBox Content="Iniciar minimizado na bandeja (somente quando iniciado pelo Windows)" IsChecked="{Binding StartMinimized}" Margin="0,0,0,4"/>
+      <TextBlock Text="{Binding AutoStartText}" TextWrapping="Wrap" Classes="muted" FontSize="12"/>
+      <Button Content="Aplicar novamente" Command="{Binding ReapplyAutoStartCommand}" IsVisible="{Binding AutoStartNeedsAttention}" HorizontalAlignment="Left" ToolTip.Tip="Recria, corrige ou remove a entrada de inicialização conforme a opção acima"/>
+      <TextBlock Text="Ao fechar a janela" FontWeight="SemiBold" Margin="0,6,0,0"/>
+      <RadioButton GroupName="CloseBehavior" Content="Minimizar para a bandeja (a música e a programação continuam)" IsChecked="{Binding CloseToTray}"/>
+      <RadioButton GroupName="CloseBehavior" Content="Encerrar o aplicativo" IsChecked="{Binding CloseExits}"/>
+      <TextBlock Text="{Binding TrayStatusText}" TextWrapping="Wrap" Classes="muted" FontSize="12"/>
+      <TextBlock Text="Para encerrar de fato, use “Sair” no menu do ícone da bandeja. Se a música estiver tocando ou o modo Automático estiver ativo, o encerramento pede confirmação." TextWrapping="Wrap" Classes="muted" FontSize="12"/>
+    </StackPanel></Border>
+    <Border Classes="card"><StackPanel Spacing="8">
+      <TextBlock Text="Diagnóstico operacional" Classes="heading"/>
+      <TextBlock Text="Estado atual desta máquina. Somente leitura; nada é enviado pela rede." Classes="muted" FontSize="12" TextWrapping="Wrap"/>
+      <ItemsControl ItemsSource="{Binding Diagnostics}">
+        <ItemsControl.ItemTemplate><DataTemplate>
+          <Grid ColumnDefinitions="230,*" Margin="0,3"><TextBlock Text="{Binding Label}" Classes="muted" FontSize="12" TextWrapping="Wrap" Margin="0,0,12,0"/><TextBlock Grid.Column="1" Text="{Binding Value}" FontSize="12" TextWrapping="Wrap" Classes.warning="{Binding Attention}"/></Grid>
+        </DataTemplate></ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <TextBlock Text="Registros detalhados: %LOCALAPPDATA%\AHNSF Music\logs" Classes="muted" FontSize="12" TextWrapping="Wrap"/>
     </StackPanel></Border>
     <Border Classes="card"><StackPanel Spacing="8">
       <TextBlock Text="Atalhos de teclado" Classes="heading"/>
-      <TextBlock Text="Ctrl+1 a Ctrl+6: Início, Biblioteca, Playlists, Fila, Programação e Configurações" Classes="muted" TextWrapping="Wrap"/>
-      <TextBlock Text="Ctrl+F: pesquisar na biblioteca  •  Esc: cancelar confirmação aberta  •  Tab: percorrer controles" Classes="muted" TextWrapping="Wrap"/>
+      <TextBlock Text="Ctrl+1 a Ctrl+8: Início, Biblioteca, Playlists, Fila, Programação, Configurações, Histórico e Importar músicas" Classes="muted" TextWrapping="Wrap"/>
+      <TextBlock Text="Ctrl+F: pesquisar na biblioteca  •  Esc: cancelar confirmação aberta (o foco fica preso na janela de confirmação)  •  Tab: percorrer controles" Classes="muted" TextWrapping="Wrap"/>
       <TextBlock Text="Dados locais e registros: %LOCALAPPDATA%\AHNSF Music" Classes="muted" FontSize="12" TextWrapping="Wrap"/>
     </StackPanel></Border>
   </StackPanel></ScrollViewer>

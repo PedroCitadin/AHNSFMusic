@@ -5,16 +5,44 @@ namespace AHNSF.Music.Desktop;
 public partial class MainViewModel
 {
     private Func<Task>? pendingDestructive;
+    private Func<Task>? pendingSecondary;
+    private Action? pendingCancel;
     [ObservableProperty] private bool destructiveConfirmation;
     [ObservableProperty] private string destructivePrompt = "";
-    private void RequestConfirmation(string message, Func<Task> action)
-    { DestructivePrompt = message; pendingDestructive = action; DestructiveConfirmation = true; }
-    [RelayCommand] private void CancelDestructive() { pendingDestructive = null; DestructiveConfirmation = false; }
-    [RelayCommand] private async Task ConfirmDestructiveAsync()
+    [ObservableProperty] private string dialogTitle = "Confirmar alteração";
+    [ObservableProperty] private string dialogConfirmLabel = "Confirmar";
+    [ObservableProperty] private string dialogSecondaryLabel = "";
+    [ObservableProperty] private bool dialogIsDanger = true;
+    /// <summary>A modal dialog is open: the background is disabled, so keyboard focus cannot leave the dialog.</summary>
+    public bool IsModalOpen => DestructiveConfirmation;
+    public bool IsBackgroundInteractive => !DestructiveConfirmation;
+    public bool HasDialogSecondary => DialogSecondaryLabel.Length > 0;
+    partial void OnDestructiveConfirmationChanged(bool value) { OnPropertyChanged(nameof(IsModalOpen)); OnPropertyChanged(nameof(IsBackgroundInteractive)); }
+    partial void OnDialogSecondaryLabelChanged(string value) => OnPropertyChanged(nameof(HasDialogSecondary));
+    private void RequestConfirmation(string message, Func<Task> action) =>
+        RequestDialog("Confirmar alteração", message, "Confirmar", action, danger: true);
+    /// <summary>Opens the single modal dialog. A dialog already open is cancelled first (cancel is always the safe outcome).</summary>
+    public void RequestDialog(string title, string message, string confirmLabel, Func<Task> action, bool danger = false,
+        string? secondaryLabel = null, Func<Task>? secondary = null, Action? cancelled = null)
     {
-        if (!DestructiveConfirmation || pendingDestructive is null) return;
-        var action = pendingDestructive; CancelDestructive();
-        try { await action(); }
+        if (DestructiveConfirmation) CancelDestructive();
+        DialogTitle = title; DestructivePrompt = message; DialogConfirmLabel = confirmLabel; DialogIsDanger = danger;
+        DialogSecondaryLabel = secondary is null ? "" : secondaryLabel ?? ""; pendingSecondary = secondary; pendingCancel = cancelled;
+        pendingDestructive = action; DestructiveConfirmation = true;
+    }
+    private void CloseDialog() { pendingDestructive = null; pendingSecondary = null; pendingCancel = null; DestructiveConfirmation = false; }
+    [RelayCommand] private void CancelDestructive()
+    {
+        var cancelled = DestructiveConfirmation ? pendingCancel : null;
+        CloseDialog(); cancelled?.Invoke();
+    }
+    [RelayCommand] private Task ConfirmDestructiveAsync() => RunDialogAction(pendingDestructive);
+    [RelayCommand] private Task DialogSecondaryAsync() => RunDialogAction(pendingSecondary);
+    private async Task RunDialogAction(Func<Task>? chosen)
+    {
+        if (!DestructiveConfirmation || chosen is null) return;
+        CloseDialog();
+        try { await chosen(); }
         catch (OperationCanceledException) { }
         catch (Exception ex) { Error(ex, "Não foi possível concluir a alteração. Os arquivos originais foram preservados."); }
     }

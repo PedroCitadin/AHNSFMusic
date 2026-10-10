@@ -23,6 +23,8 @@ public partial class MainViewModel
         "Biblioteca" => "Suas músicas locais, organizadas e sempre disponíveis para consulta.",
         "Playlists" => "Organize o repertório. A fila em reprodução permanece independente.",
         "Fila" => "A sequência desta sessão. Alterações não modificam playlists salvas.",
+        "Histórico" => "Eventos, sessões e tempo de reprodução observados neste computador.",
+        "Importar músicas" => "Cole o link de uma playlist, confira as músicas e baixe para a pasta musical, sem interromper o player.",
         "Programação" => "Veja quando o som estará ligado e configure os horários da semana.",
         _ => "Preferências locais e manutenção da biblioteca."
     };
@@ -45,7 +47,7 @@ public partial class MainViewModel
     public string PlaylistTotalLabel => $"{PlaylistTotal:N0} {(PlaylistTotal == 1 ? "coleção" : "coleções")}";
     public string LibraryHealth => IsBusy ? "↻ Indexação em andamento" : !DirectoryAvailable ? "⚠ Biblioteca indisponível" : settings.MusicDirectory is null ? "○ Pasta não configurada" : "✓ Biblioteca disponível";
     public bool HasOperationalAlert => OperationalAlert.Length > 0;
-    public string OperationalAlert => playback.LastError is not null ? "Falha de reprodução. Verifique o arquivo e a saída de áudio; consulte os logs."
+    public string OperationalAlert => AudioDeviceNeedsAttention ? AudioDeviceMessage : playback.LastError is not null ? "Falha de reprodução. Verifique o arquivo e a saída de áudio; consulte os logs."
         : !DirectoryAvailable ? "A pasta musical está indisponível. O catálogo foi preservado; verifique o acesso à pasta."
         : ScheduleWarning.Length > 0 ? ScheduleWarning : presentedSchedule?.IsSuspended == true ? "A automação está suspensa por intervenção manual. Retomará na próxima mudança da regra vencedora."
         : Rules.Any(r => r.PlaylistId is null) ? "Uma regra está sem playlist. Associe uma playlist válida em Programação."
@@ -58,6 +60,8 @@ public partial class MainViewModel
     public string RuleDeletePrompt => $"Excluir a regra “{SelectedRule?.Name}”? A playlist e os arquivos serão preservados.";
     private void NotifyPresentation()
     {
+        UpdateDiagnostics();
+        NotifyAudioDevicePresentation();
         foreach (var property in new[] { nameof(PlayerStateLabel), nameof(PlayerStateIcon), nameof(PlayerStateColor), nameof(ActiveOrigin), nameof(QueueOrigin), nameof(ModeLabel), nameof(AutomationLabel), nameof(RuleLabel), nameof(RuleContext), nameof(NextAction), nameof(ExpectedEnd), nameof(PlaylistTotal), nameof(LibraryTotalLabel), nameof(PlaylistTotalLabel), nameof(LibraryHealth), nameof(OperationalAlert), nameof(HasOperationalAlert), nameof(HasNoPlaylists), nameof(HasNoRules), nameof(ResultsText), nameof(VolumeLabel), nameof(RuleDeletePrompt) }) OnPropertyChanged(property);
     }
     partial void OnStatusChanged(string value) => OnPropertyChanged(nameof(HasFeedback));

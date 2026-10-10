@@ -1,0 +1,23 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="using:AHNSF.Music.Desktop" x:Class="AHNSF.Music.Desktop.Views.ImportView" x:DataType="local:MainViewModel">
+  <Grid RowDefinitions="Auto,*,Auto" RowSpacing="10">
+    <Border Classes="card"><StackPanel Spacing="9">
+      <TextBlock Text="IMPORTAR MÚSICAS" Classes="eyebrow"/>
+      <TextBlock Text="Link da playlist" FontWeight="SemiBold"/>
+      <WrapPanel><TextBox Text="{Binding ImportUrl}" Watermark="https://open.spotify.com/playlist/…" Width="470" Margin="0,0,8,8" AutomationProperties.Name="Link da playlist"/><Button Content="Analisar" Command="{Binding PreviewImportUrlCommand}" IsEnabled="{Binding !ImportBusy}" Classes="accent" Margin="0,0,8,8"/></WrapPanel>
+      <TextBlock Text="{Binding ImportToolMessage}" Classes="muted" TextWrapping="Wrap"/>
+      <WrapPanel><TextBlock Text="Já tem os arquivos MP3?" Classes="muted" VerticalAlignment="Center" Margin="0,0,4,0"/><Button Content="Importar MP3 do computador…" Command="{Binding PreviewImportLocalCommand}" IsEnabled="{Binding !ImportBusy}" Classes="ghost" AutomationProperties.Name="Importar MP3 do computador"/></WrapPanel>
+    </StackPanel></Border>
+    <Border Grid.Row="1" Classes="card"><Grid RowDefinitions="Auto,Auto,*" RowSpacing="6">
+      <WrapPanel><TextBox Text="{Binding ImportPlaylistName}" Watermark="Nome da playlist" Width="340" Margin="0,0,10,0" FontSize="16" IsEnabled="{Binding ImportHasPreview}" AutomationProperties.Name="Nome da playlist"/><TextBlock Text="{Binding ImportSummary}" Classes="muted" VerticalAlignment="Center"/></WrapPanel>
+      <TextBlock Grid.Row="1" Text="Nenhuma playlist analisada." Classes="muted" IsVisible="{Binding !ImportHasPreview}"/>
+      <ListBox Grid.Row="2" ItemsSource="{Binding ImportRows}" AutomationProperties.Name="Músicas da playlist"><ListBox.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel/></ItemsPanelTemplate></ListBox.ItemsPanel><ListBox.ItemTemplate><DataTemplate><Grid ColumnDefinitions="Auto,*" Margin="6,5"><CheckBox IsChecked="{Binding IsSelected}" VerticalAlignment="Center" Margin="0,0,10,0"/><StackPanel Grid.Column="1" Spacing="1"><TextBlock Text="{Binding Title}"/><TextBlock Text="{Binding Detail}" Classes="muted"/><TextBlock Text="{Binding Availability}" Classes="muted" FontSize="11"/></StackPanel></Grid></DataTemplate></ListBox.ItemTemplate></ListBox>
+    </Grid></Border>
+    <StackPanel Grid.Row="2" Spacing="8">
+      <CheckBox IsChecked="{Binding ImportRightsConfirmed}" IsVisible="{Binding ImportIsOnline}" AutomationProperties.Name="Confirmação de direitos"><TextBlock Text="Confirmo que a AHNSF tem autorização para obter e reproduzir o áudio destas músicas." TextWrapping="Wrap"/></CheckBox>
+      <WrapPanel><Button Content="{Binding ImportStartText}" Command="{Binding StartImportCommand}" IsEnabled="{Binding ImportCanStart}" Classes="accent" Margin="0,0,8,0"/><Button Content="Cancelar" Command="{Binding CancelImportCommand}" IsEnabled="{Binding ImportBusy}"/></WrapPanel>
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10" IsVisible="{Binding ImportBusy}"><ProgressBar Height="6" Minimum="0" Maximum="{Binding ImportProgressMaximum}" Value="{Binding ImportProgressValue}" IsIndeterminate="{Binding !ImportProgressKnown}" VerticalAlignment="Center"/><TextBlock Grid.Column="1" Text="{Binding ImportProgressText}" Classes="muted"/></Grid>
+      <TextBlock Text="{Binding ImportMessage}" TextWrapping="Wrap"/>
+      <ScrollViewer MaxHeight="120"><ItemsControl ItemsSource="{Binding ImportResults}"><ItemsControl.ItemTemplate><DataTemplate><TextBlock Text="{Binding Display}" TextWrapping="Wrap" Classes="muted"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl></ScrollViewer>
+    </StackPanel>
+  </Grid>
+</UserControl>

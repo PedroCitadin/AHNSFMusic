@@ -16,7 +16,7 @@ public sealed record LibraryOptions
 }
 
 public sealed class LibraryService(ILibraryRepository repository, ITrackMetadataReader metadata, IArtworkCache artwork,
-    ILogger logger, LibraryOptions? options = null) : ILibraryService
+    ILogger logger, LibraryOptions? options = null, IOperationalHistoryService? history = null) : ILibraryService
 {
     private readonly LibraryOptions options = options ?? new();
     private readonly SemaphoreSlim switching = new(1, 1);
@@ -29,6 +29,7 @@ public sealed class LibraryService(ILibraryRepository repository, ITrackMetadata
     private Channel<bool>? signals;
     private int watcherFault;
     private bool disposed;
+    private bool historyUnavailable;
     private DateTime lastCacheCleanupUtc;
     public event EventHandler<LibraryNotification>? Changed;
 
@@ -165,6 +166,8 @@ public sealed class LibraryService(ILibraryRepository repository, ITrackMetadata
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { logger.Warning(ex, "Arquivo indisponível: {Path}", file.FullName); pending++; }
         }
+        if (historyUnavailable) { historyUnavailable = false; history.Observe(OperationalEventType.LibraryRecovered, "Biblioteca", "Disponibilidade da pasta recuperada.", origin: OperationalActionOrigin.Library); }
+        if (candidates.Count > 0) history.Observe(OperationalEventType.IndexingStarted, "Biblioteca", $"Indexação de {candidates.Count} candidato(s) iniciada.", origin: OperationalActionOrigin.Library);
         if (candidates.Count > 0) await Task.Delay(options.StabilityDelay, token).ConfigureAwait(false);
         var changed = new List<Track>(); int processed = 0;
         foreach (var candidate in candidates)
@@ -199,6 +202,8 @@ public sealed class LibraryService(ILibraryRepository repository, ITrackMetadata
             try { artwork.Clean(await repository.ArtworkKeysAsync(token).ConfigureAwait(false), token); lastCacheCleanupUtc = DateTime.UtcNow; }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { logger.Warning(ex, "Falha de limpeza do cache"); warnings.Add("Não foi possível limpar o cache de capas."); }
         }
+        if (candidates.Count > 0 || changed.Count > 0) history.Observe(OperationalEventType.IndexingCompleted, "Biblioteca", $"Indexação concluída: {processed} lidos, {changed.Count} alterações, {pending} pendências.", origin: OperationalActionOrigin.Library);
+        if (warnings.Count > 0) history.Observe(incomplete ? OperationalEventType.LibraryAccessFailed : OperationalEventType.LibraryReadError, "Biblioteca", $"Indexação com {warnings.Count} aviso(s); consulte o log técnico.", OperationalEventSeverity.Warning, OperationalActionOrigin.Library);
         logger.Information("Biblioteca: {Processed} lidos, {Changed} alterados, {Pending} pendentes em {Ms} ms", processed, changed.Count, pending, clock.ElapsedMilliseconds);
         var message = warnings.Count > 0 ? $"Biblioteca sincronizada com {warnings.Count} aviso(s). {warnings[0]}" : pending > 0 ? $"{pending} arquivo(s) ainda em cópia ou uso. Nova tentativa automática." : "Biblioteca sincronizada.";
         if (watcher is null) message += " Monitoramento indisponível; reconciliação periódica ativa.";
@@ -206,6 +211,7 @@ public sealed class LibraryService(ILibraryRepository repository, ITrackMetadata
         return new(true, processed, changed.Count, pending, warnings);
         LibrarySyncResult Unavailable()
         {
+            if (!historyUnavailable) { historyUnavailable = true; history.Observe(OperationalEventType.LibraryUnavailable, "Biblioteca", "Pasta indisponível; catálogo preservado.", OperationalEventSeverity.Warning, OperationalActionOrigin.Library); }
             logger.Warning("Pasta da biblioteca indisponível: {Root}; catálogo preservado", directory);
             Changed?.Invoke(this, new("Pasta indisponível. Catálogo preservado; verifique o caminho e as permissões.", false, false, directory));
             return new(false, 0, 0, 0, ["Pasta indisponível."]);

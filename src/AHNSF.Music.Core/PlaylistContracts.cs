@@ -24,11 +24,14 @@ public sealed record QueueItem(Guid Id, Track Track, Guid? PlaylistItemId = null
 public sealed record PlaybackOrigin(Guid? PlaylistId, string Name);
 public interface IPlaybackService
 {
+    void SetOperationalContext(OperationalActionOrigin origin, Guid? ruleId = null, string? deviceId = null) { }
     event EventHandler? Changed;
     PlaybackQueue Queue { get; }
     Track? CurrentTrack { get; }
     PlayerState State { get; }
     string Message { get; }
+    /// <summary>Last playback error, used by scheduled recovery to classify failures.</summary>
+    Exception? LastError => null;
     float Volume { get; set; }
     void SetScheduledRepeat(bool enabled);
     Task LoadPlaylistAsync(Guid id, bool start = false, Guid? itemId = null, CancellationToken token = default);

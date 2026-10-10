@@ -1,3 +1,5 @@
+using System.ComponentModel;
+using AHNSF.Music.Core;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -9,8 +11,13 @@ namespace AHNSF.Music.Desktop;
 public partial class MainWindow : Window
 {
     private readonly MainViewModel viewModel = null!;
-    private bool closingSaved;
-    private bool savingClose;
+    private IInputElement? focusBeforeModal;
+    /// <summary>Close button/Alt+F4/system close: the App decides (tray, notice, confirmation or exit).</summary>
+    public event Action<WindowCloseReason>? CloseRequested;
+    /// <summary>Set only by the orderly exit path; any other close is intercepted.</summary>
+    public bool AllowClose { get; set; }
+    /// <summary>True after the saved geometry was applied, so later saves never overwrite it with defaults.</summary>
+    public bool HasOpened { get; private set; }
     private Point dragStart;
     private (Guid Playlist, Guid Item)? dragCandidate;
     private ListBoxItem? dropTarget;
@@ -26,7 +33,7 @@ public partial class MainWindow : Window
         };
         KeyDown += (_, args) =>
         {
-            if (args.KeyModifiers == KeyModifiers.Control && args.Key == Key.F)
+            if (args.KeyModifiers == KeyModifiers.Control && args.Key == Key.F && !viewModel.IsModalOpen)
             { viewModel.NavigateCommand.Execute("Biblioteca"); Avalonia.Threading.Dispatcher.UIThread.Post(() => LibraryPage.FindControl<TextBox>("LibrarySearch")?.Focus()); args.Handled = true; }
             else if (args.Key == Key.Escape)
             { viewModel.CancelDestructiveCommand.Execute(null); viewModel.CancelDeletePlaylistCommand.Execute(null); viewModel.CancelDeleteRuleCommand.Execute(null); args.Handled = true; }
@@ -100,13 +107,29 @@ public partial class MainWindow : Window
                 new MenuItem { Header = "Limpar fila…", Command = viewModel.RequestClearQueueCommand }
             }
         };
+        viewModel.PickHistoryCsv = async () =>
+        {
+            var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions { Title = "Exportar histórico operacional", SuggestedFileName = "AHNSF-historico.csv", DefaultExtension = "csv", ShowOverwritePrompt = true, FileTypeChoices = [new FilePickerFileType("CSV") { Patterns = ["*.csv"] }] });
+            return file?.TryGetLocalPath();
+        };
         viewModel.PickDirectory = async () =>
         {
             var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions { Title = "Selecionar pasta de músicas", AllowMultiple = false });
             return folders.FirstOrDefault()?.TryGetLocalPath();
         };
+        viewModel.PickImportFiles = async () =>
+        {
+            var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = "Selecionar MP3 autorizados",
+                AllowMultiple = true,
+                FileTypeFilter = [new FilePickerFileType("MP3") { Patterns = ["*.mp3"] }]
+            });
+            return files.Select(file => file.TryGetLocalPath()).OfType<string>().ToArray();
+        };
         Opened += async (_, _) =>
         {
+            if (HasOpened) return;
             await viewModel.InitializeAsync();
             var settings = viewModel.Settings;
             Width = Math.Clamp(settings.Width, 900, 3000); Height = Math.Clamp(settings.Height, 620, 2000);
@@ -115,17 +138,36 @@ public partial class MainWindow : Window
                 var point = new PixelPoint(x, y);
                 if (Screens.All.Any(screen => screen.WorkingArea.Contains(point))) Position = point;
             }
+            HasOpened = true;
         };
-        Closing += async (_, args) =>
+        Closing += (_, args) =>
         {
-            if (closingSaved) return;
+            if (AllowClose) return;
             args.Cancel = true;
-            if (savingClose) return;
-            savingClose = true;
-            viewModel.StopCommand.Execute(null);
-            await viewModel.SaveWindowAsync(Width, Height, Position.X, Position.Y);
-            await viewModel.DisposeAsync(); closingSaved = true; Close();
+            CloseRequested?.Invoke(args.CloseReason);
         };
+        viewModel.PropertyChanged += OnViewModelPropertyChanged;
+    }
+    public AppSettings CaptureGeometry(AppSettings settings) => settings with { Width = Width, Height = Height, X = Position.X, Y = Position.Y };
+    // Modal focus: the background is disabled by binding (Tab cannot reach it); focus starts on the safe button and returns afterwards.
+    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs args)
+    {
+        if (args.PropertyName != nameof(MainViewModel.IsModalOpen)) return;
+        if (viewModel.IsModalOpen)
+        {
+            var current = FocusManager?.GetFocusedElement();
+            if (current is not Visual visual || !visual.GetVisualAncestors().Contains(ModalOverlay)) focusBeforeModal = current;
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => ModalCancel.Focus(NavigationMethod.Tab), Avalonia.Threading.DispatcherPriority.Input);
+        }
+        else
+        {
+            var previous = focusBeforeModal; focusBeforeModal = null;
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                if (previous is Control { IsEffectivelyVisible: true, IsEffectivelyEnabled: true } control && control.GetVisualRoot() == this) control.Focus(NavigationMethod.Tab);
+                else Focus();
+            }, Avalonia.Threading.DispatcherPriority.Input);
+        }
     }
     private static ListBoxItem? FindItem(object? source) =>
         source is Control control ? control as ListBoxItem ?? control.GetVisualAncestors().OfType<ListBoxItem>().FirstOrDefault() : null;

@@ -48,7 +48,7 @@ public partial class MainViewModel
     }
     public IReadOnlyList<DayChoice> RuleDays { get; } = new[] { "Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb" }
         .Select((name, i) => new DayChoice(name, (ScheduleDays)(1 << i))).ToArray();
-    private void ManualIntervention() { if (initialized && !disposed) scheduler?.NotifyManualIntervention(); }
+    private void ManualIntervention() { if (initialized && !disposed) { playback.SetOperationalContext(OperationalActionOrigin.Manual, deviceId: audioDevices?.Status.BoundDeviceId); if (scheduler?.Status.Mode != OperationMode.Automatic) history.Observe(OperationalEventType.ManualIntervention, "Operador", "Ação manual no aplicativo.", origin: OperationalActionOrigin.Manual); scheduler?.NotifyManualIntervention(); } }
     private async Task InitializeScheduleAsync()
     {
         if (scheduleStore is null || scheduler is null || disposed) return;

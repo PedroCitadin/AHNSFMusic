@@ -19,5 +19,6 @@
       <Border Classes="card" Margin="7,0,7,0"><StackPanel Spacing="6"><TextBlock Text="PLAYLISTS" Classes="eyebrow"/><TextBlock Text="{Binding PlaylistTotalLabel}" Classes="heading"/><TextBlock Text="Repertórios salvos localmente" Classes="muted" FontSize="11" TextWrapping="Wrap"/></StackPanel></Border>
       <Border Classes="card" Margin="7,0,0,0"><StackPanel Spacing="6"><TextBlock Text="OPERAÇÃO" Classes="eyebrow"/><TextBlock Text="{Binding ModeLabel}" Classes="heading"/><TextBlock Text="{Binding AutomationLabel}" Classes="muted" FontSize="11" TextWrapping="Wrap"/></StackPanel></Border>
     </UniformGrid>
+    <Border Classes="card"><StackPanel Spacing="6"><TextBlock Text="HISTÓRICO OPERACIONAL" Classes="eyebrow"/><TextBlock Text="{Binding HistoryDashboard}" TextWrapping="Wrap" Classes="muted"/><Button Content="Abrir Histórico" Command="{Binding NavigateCommand}" CommandParameter="Histórico" HorizontalAlignment="Left"/></StackPanel></Border>
   </StackPanel></ScrollViewer>
 </UserControl>
